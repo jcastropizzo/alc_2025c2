@@ -1,20 +1,29 @@
 from pathlib import Path
-from numpy import (
-    load, ndarray, concatenate, zeros, ones, column_stack, array
-)
+from numpy import load, ndarray, concatenate, zeros, ones, column_stack, array
 
-CLASSES = ['cats', 'dogs']
-EMBEDDING_NAME = 'efficientnet_b3_embeddings.npy'
+CLASSES = ["cats", "dogs"]
+EMBEDDING_NAME = "efficientnet_b3_embeddings.npy"
 
-Datos = tuple[ndarray, ndarray]
+Datos = tuple[ndarray, ndarray, ndarray, ndarray]
+
 
 def cargarDataset(file: Path) -> Datos:
-    train_path = file / 'train'
-    paths = [train_path / cls / EMBEDDING_NAME for cls in CLASSES]
-    training_data = concatenate([load(path) for path in paths], axis=1)
-    label_data = array([[1, 0]] * (training_data.shape[1] // 2))
-    label_data = concatenate([label_data, array([[0, 1]] * (training_data.shape[1] // 2))], axis=0)
+    val_path = file / "val"
+    train_path = file / "train"
+    train_paths = [train_path / cls / EMBEDDING_NAME for cls in CLASSES]
+    val_paths = [val_path / cls / EMBEDDING_NAME for cls in CLASSES]
 
-    assert label_data.shape[0] == training_data.shape[1]
-    assert training_data.shape[0] == 1536
-    return training_data, label_data
+    training_data = concatenate([load(path) for path in train_paths], axis=1)
+    training_labels = array([[1, 0]] * (training_data.shape[1] // 2))
+    training_labels = concatenate(
+        [training_labels, array([[0, 1]] * (training_data.shape[1] // 2))], axis=0
+    )
+
+    validation_data = concatenate([load(path) for path in val_paths], axis=1)
+    validation_labels = array([[1, 0]] * (validation_data.shape[1] // 2))
+    validation_labels = concatenate(
+        [validation_labels, array([[0, 1]] * (validation_data.shape[1] // 2))],
+        axis=0,
+    )
+
+    return training_data, training_labels, validation_data, validation_labels
