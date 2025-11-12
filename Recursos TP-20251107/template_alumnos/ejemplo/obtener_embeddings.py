@@ -68,5 +68,3 @@ for imagen in imagenes:
 
 # Plotear la imagen y los embeddings
 plot_images_and_embeddings(images_processed, embeddings, imagenes)
-
-
