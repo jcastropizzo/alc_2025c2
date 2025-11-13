@@ -11,8 +11,8 @@ print("Yt: ", Y_train.shape)
 print("Xv: ", X_val.shape)
 print("Yv: ", Y_val.shape)
 
-U, S, V = np.linalg.svd(X_train)
-
+U, srow, V = np.linalg.svd(X_train)
+S = np.diag(srow)
 print("U: ",U.shape)
 print("S: ",S.shape)
 print("V: ",V.shape)
@@ -21,13 +21,24 @@ def pinvSVD(U, S, V, Y):
 
     n = U.shape[0]
     p = V.shape[0]
-    s1_inv = np.zeros_like(s, dtype=float)
-    non_zero_indices = s > 1e-15
-    s_inv[non_zero_indices] = 1.0 / s[non_zero_indices]
-    splus = np.pad(s_inv, (0, p), 'constant')
-    sigmaplus = np.diag(splus)   
-    Ut = transpuesta(U)
-    Vt = transpuesta(Vt) # En realidad SVD devuelve V transpuesta, por lo cual usamos V en la inversa de X. Mantengo naming conventions del enunciado.
-    V1 = Vt[:,0:n]
-    V2 = Vt[:n:p]
+    print("n: ", n)
+    print("p :", p)
+    print("p - n: ", p-n)
     
+    
+    Ut = transpuesta(U)
+    Vt = transpuesta(V) # En realidad SVD devuelve V transpuesta, por lo cual usamos V en la inversa de X. Mantengo naming conventions del enunciado.
+    V1 = Vt[:,0:n]
+    V2 = Vt[:,n:p]
+    
+    print("V1 shape", V1.shape)
+    print("V2 shape", V2.shape)
+    VSigmamas = V1@S
+    print("Vsigmamas shape", VSigmamas.shape)
+    # luego Vsigmamas@Ut
+    VSigmamasUt = VSigmamas@Ut
+    print("VSmasUt shape", VSigmamasUt.shape)
+    W = Y_train.T@VSigmamas@Ut
+    return W
+
+pinvSVD(U,S,V,Y_train)
