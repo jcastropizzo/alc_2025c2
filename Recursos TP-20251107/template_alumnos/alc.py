@@ -9,6 +9,8 @@ Original file is located at
 
 import numpy as np
 import math #para sqrt en labo8
+import ctypes
+   
 
 def esCuadrada(A):
   return A.shape[0] == A.shape[1]
@@ -57,6 +59,11 @@ def esSimetrica(A):
     for j in range(0, A.shape[1]):
       if(A[i,j] != T[i,j]): return False
   return True
+
+# Uso lo que tengo en aux.c
+def calcularAxFast(A,x):
+  pass
+  
 
 def calcularAx(A,x):
   res = np.zeros(A.shape[0])
@@ -129,12 +136,20 @@ def filasIguales(A, B, tol = np.finfo(np.double).eps * 2):
   return True
 
 def matMul(A,B):
-    if(len(A[0]) != len(B)):
-      raise Exception("Matrices dimensions don't match for multiplication")
-    res = np.zeros((A.shape[0],B.shape[1]))
-    for i in range(0,res.shape[1]):
-      res[:,i] = calcularAx(A,B[:,i])
-    return res
+  if(len(A[0]) != len(B)):
+    raise Exception("Matrices dimensions don't match for multiplication")
+  res = np.zeros((A.shape[0],B.shape[1]))
+  for i in range(0,res.shape[1]):
+    res[:,i] = calcularAxFast(A,B[:,i])
+  return res
+
+def matMulSlow(A,B):
+  if(len(A[0]) != len(B)):
+    raise Exception("Matrices dimensions don't match for multiplication")
+  res = np.zeros((A.shape[0],B.shape[1]))
+  for i in range(0,res.shape[1]):
+    res[:,i] = calcularAx(A,B[:,i])
+  return res   
 
 def rota(theta):
   return np.array([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]])
@@ -517,6 +532,24 @@ def esNucleo(A,S,tol=1e-5):
             return False
     return True
 
+
+def cholesky(A):
+    """
+    Realiza la descomposición de Cholesky de una matriz simétrica y definida positiva A.
+    Retorna una matriz L tal que A = L * L^T
+    """
+    n = A.shape[0]
+    L = np.zeros_like(A)
+
+    for i in range(n):
+        for j in range(i + 1):
+            if i == j:
+                L[i, j] = np.sqrt(A[i, i] - np.sum(L[i, :j] ** 2))
+            else:
+                L[i, j] = (A[i, j] - np.sum(L[i, :j] * L[j, :j])) / L[j, j]
+
+    return L, transpuesta(L)
+
 def svd_reducida(A, k="max", tol=1e-15):
     """
     A la matriz de interes (de m x n)
@@ -589,3 +622,45 @@ def svd_reducida(A, k="max", tol=1e-15):
                 hatU[:, i] = B_u[:, i] / sigma_i
 
     return hatU, hatS, hatV
+
+
+try:
+  try:
+    ctypes.cdll.LoadLibrary("./aux.dylib")
+    aux = ctypes.CDLL("./aux.dylib")
+  except:
+    ctypes.cdll.LoadLibrary("./aux.dylib")
+    aux = ctypes.CDLL("./aux.so")
+  
+  # Try with underscore prefix (macOS convention)
+  try:
+    calcularAX_func = aux._calcularAX
+  except AttributeError:
+    calcularAX_func = aux.calcularAX
+  
+  calcularAX_func.argtypes = [
+    ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float),
+    ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int
+  ]
+
+  def _calcularAxFast(A,x):
+    # Ensure inputs are float32 for C compatibility
+    A_f32 = np.ascontiguousarray(A, dtype=np.float32)
+    x_f32 = np.ascontiguousarray(x, dtype=np.float32)
+    
+    n_rows = A_f32.shape[0]
+    n_cols = A_f32.shape[1]
+    A_ctypes = A_f32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    x_ctypes = x_f32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    res = np.zeros(n_rows, dtype=np.float32)
+    res_ctypes = res.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+
+    calcularAX_func(A_ctypes, x_ctypes, res_ctypes, n_rows, n_cols)
+    return res
+  
+  calcularAxFast = _calcularAxFast
+  print("USING FAST CODE")
+except Exception as e:
+  print(e)
+  print("USING SLOW CODE")
+  calcularAxFast = calcularAx
