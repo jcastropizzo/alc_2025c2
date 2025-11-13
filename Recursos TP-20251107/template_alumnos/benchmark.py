@@ -6,7 +6,7 @@ import time
 num_matrices_in_series = 500
 
 # Define the starting number of rows
-start_rows = 2
+start_rows = 100
 
 print(f"Generating a series of {num_matrices_in_series} matrices where shape = (N, N+1)\n")
 
