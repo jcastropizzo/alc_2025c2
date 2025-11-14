@@ -28,6 +28,26 @@ def alc_imp():
     U, S, V = svd_reducida(X_train)
     return pinvSVD(U, S, V, Y_train,'alc')
 
+
+def validate_transferlearning(W, X_val, Y_val):
+    predicciones_correctas = 0
+    samples = X_val.shape[1]
+    for i in range(samples):
+        y_true_vector = Y_val[i, :]
+        ei = W @ X_val[:, i]
+        predicted_class = np.argmax(ei)
+        true_class = np.argmax(y_true_vector)
+        if predicted_class == true_class:
+            predicciones_correctas += 1
+        # print("iteration", i, ":",ei)
+        # print("iteration", i, " Y",Y_val[i,:])
+
+    accuracy = (predicciones_correctas / samples) * 100
+    print(f"\n--- Resultados de Validación ---")
+    print(f"Precisión (Accuracy): {accuracy:.2f}%")
+    print(f"Clasificó correctamente {predicciones_correctas} de {samples} muestras.")
+
+
 def np_imp():
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
 
@@ -35,22 +55,7 @@ def np_imp():
     S = np.diag(srow)
     W = pinvSVD(U, S, V, Y_train,'np')
 
-    predicciones_correctas = 0
-    samples = X_val.shape[1]
-    for i in range(samples):
-        y_true_vector = Y_val[i, :]
-        ei = W@X_val[:,i]
-        predicted_class = np.argmax(ei)
-        true_class = np.argmax(y_true_vector)
-        if predicted_class == true_class:
-            predicciones_correctas += 1
-        #print("iteration", i, ":",ei)
-        #print("iteration", i, " Y",Y_val[i,:])
-
-    accuracy = (predicciones_correctas / samples) * 100
-    print(f"\n--- Resultados de Validación ---")
-    print(f"Precisión (Accuracy): {accuracy:.2f}%")
-    print(f"Clasificó correctamente {predicciones_correctas} de {samples} muestras.")
+    validate_transferlearning(W,X_val,Y_val)
     return 1
         
 
