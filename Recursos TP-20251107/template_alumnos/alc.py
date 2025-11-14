@@ -183,54 +183,55 @@ def trans_afin(v , theta , s , b):
 
 def norma(x,p):
   if(p == 'inf'):
-    maxim = -1
-    for val in x:
-      maxim = max(maxim,abs(val))
-    return maxim
-  sum = 0
-  for i in range(0,x.size):
-    sum = sum + abs(x[i])**p
-  return sum**(1/p)
+    return np.max(np.abs(x))
+  return np.sum(np.abs(x)**p)**(1/p)
 
-def normaliza(X,p):
-  res = []
-  for i in range(len(X)):
-    res.append(X[i]/norma(X[i],p))
-  return res
-
-def normaExacta(A,p=[1,'inf']):
-  norma = -1
+def normaExacta(A, p):
   if p == 1:
-    for col in range(A.shape[1]):
-      sumCol = 0
-      for fil in range(A.shape[0]):
-        sumCol = sumCol + abs(A[fil,col])
-      norma = max(norma,sumCol)
+    return np.max(np.sum(np.abs(A), axis=0))
   if p == 'inf':
-    for fil in range(A.shape[0]):
-      sumFil = 0
-      for col in range(A.shape[1]):
-        sumFil = sumFil + abs(A[fil,col])
-      norma = max(norma,sumFil)
-  if norma == -1: return None
-  return norma
+    return np.max(np.sum(np.abs(A), axis=1))
+  return None
 
-def normaMatMC(A,q,p,Np):
-  mc = np.random.rand(Np,A.shape[1])
-  mc = normaliza(mc,p)
-  normaMat = -1
-  vec = []
-  for x in mc:
-    candidate = norma(calcularAx(A,x),q)
-    if(candidate > normaMat):
-      normaMat = candidate
-      vec = x
-  return [normaMat,vec]
+def normaMatMC(A, q, p, Np):
+  # 1. Crear los Np vectores aleatorios (Np filas, A.shape[1] columnas)
+  mc = np.random.rand(Np, A.shape[1])
+
+  # 2. Normalizar *toda la matriz* de vectores
+  #    Calculamos la norma-p para cada fila (axis=1)
+  if p == 'inf':
+    norms = np.max(np.abs(mc), axis=1)
+  else:
+    norms = np.sum(np.abs(mc)**p, axis=1)**(1/p)
+
+  #    Dividimos cada fila por su norma.
+  #    (Usamos norms[:, np.newaxis] para que la división sea (Np, 1) y funcione por filas)
+  #    Manejar división por cero si alguna norma es 0
+  norms[norms == 0] = 1 
+  mc_normalized = mc / norms[:, np.newaxis]
+
+  # 3. Multiplicar A por *todos* los vectores a la vez
+  #    A es (M, N). mc_normalized.T (transpuesta) es (N, Np)
+  #    El resultado 'Y' es (M, Np). Cada columna de Y es un resultado A*x
+  Y = A @ mc_normalized.T
+
+  # 4. Calcular la norma-q de *todos* los Np vectores resultado (columnas de Y)
+  if q == 'inf':
+    candidate_norms = np.max(np.abs(Y), axis=0) # axis=0 para operar por columnas
+  else:
+    candidate_norms = np.sum(np.abs(Y)**q, axis=0)**(1/q)
+
+  # 5. Encontrar la norma máxima y el índice del vector que la produjo
+  normaMat = np.max(candidate_norms)
+  max_index = np.argmax(candidate_norms)
+  vec = mc_normalized[max_index, :] # El vector de entrada normalizado
+
+  return [normaMat, vec]
 
 def condMC(A,p,Np=10000):
   A_inv = np.linalg.inv(A)
-  norma_A = normaMatMC(A,p,p,100000)
-  norma_A_Inv = normaMatMC(A_inv,p,p,100000)
+  norma_A = normaMatMC(A,p,p,Np)
+  norma_A_Inv = normaMatMC(A_inv,p,p,Np)
   return norma_A[0] * norma_A_Inv[0]
 
 def condExacto(A,p):
@@ -343,6 +344,35 @@ def QR_con_GS(A, tol=1e-12,retorna_nops=False):
       return Q,R
 
 def metpot2k(A, tol=1e-15, max_iter=1000):
+    n = A.shape[0]
+    v = np.random.rand(n, 1)
+    v = v / norma(v, 2)
+    l_prev = 0.0
+    max_iter = int(max_iter)
+    A_cuadrado = matMul(A, A) 
+
+    for k in range(max_iter):
+        w = matMul(A_cuadrado, v) 
+
+        norma_w = norma(w, 2)
+        if norma_w < tol:
+            return v, 0.0, k
+
+        v_nuevo = w / norma_w
+        
+        Av_nuevo = matMul(A, v_nuevo)
+        l_nuevo = matMul(transpuesta(v_nuevo), Av_nuevo)[0, 0]
+
+        if np.abs(l_nuevo - l_prev) < tol:
+            return v_nuevo, l_nuevo, k
+
+        v = v_nuevo
+        l_prev = l_nuevo
+
+    print(f"El método no convergió después de {max_iter} iteraciones.")
+    return v, l_nuevo, max_iter
+
+def metpot2k_old(A, tol=1e-15, max_iter=1000):
     """
     Calcula el autovalor dominante (de mayor magnitud) y su autovector
     correspondiente usando el método de la potencia cuadrado (iterando con A^2).
@@ -563,7 +593,7 @@ def svd_reducida(A, k="max", tol=1e-15):
 
     if m < n:
         B = matMul(A, transpuesta(A))
-        diagonalizacion = diagRH(B, tol)
+        diagonalizacion = diagRH(B, tol,1000)
         U = diagonalizacion[0]
         D = diagonalizacion[1]
 
@@ -594,7 +624,7 @@ def svd_reducida(A, k="max", tol=1e-15):
 
     else: # (m >= n)
         B = matMul(transpuesta(A), A)
-        diagonalizacion = diagRH(B, tol)
+        diagonalizacion = diagRH(B, tol,1000)
         V = diagonalizacion[0]
         D = diagonalizacion[1]
 

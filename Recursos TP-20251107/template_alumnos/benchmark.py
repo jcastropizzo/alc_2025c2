@@ -3,10 +3,10 @@ from alc import *
 import time
 
 # Define the number of matrices in the series
-num_matrices_in_series = 500
+num_matrices_in_series = 2000
 
 # Define the starting number of rows
-start_rows = 100
+start_rows = 500
 
 print(f"Generating a series of {num_matrices_in_series} matrices where shape = (N, N+1)\n")
 
@@ -15,11 +15,11 @@ print("Starting SVD timing test...\n")
 # A list to store our results
 timing_results = []
 
-for i in range(num_matrices_in_series):
+for i in range(start_rows, num_matrices_in_series,50):
     
     # 1. Create the progressively larger matrix
-    num_rows = start_rows + i
-    num_cols = num_rows + 1
+    num_rows = i
+    num_cols = num_rows + 100
     random_matrix = np.random.rand(num_rows, num_cols)
     
     print(f"Iteration {i+1}: Matrix Shape {random_matrix.shape}")
