@@ -5,6 +5,9 @@ import numpy as np
 import sys
 import argparse
 
+def test():
+    return 1
+
 def pinvSVD(U, S, V, Y,imp='alc'):
     n = U.shape[0]
     p = V.shape[0]
@@ -28,9 +31,28 @@ def alc_imp():
 
 def np_imp():
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
+    print(Y_train)
+    print(Y_val)
     U, srow, V = np.linalg.svd(X_train)
     S = np.diag(srow)
-    return pinvSVD(U, S, V, Y_train,'np')
+    S = 1/S
+    W = pinvSVD(U, S, V, Y_train,'np')
+    
+    print("xval shape: ",X_val.shape)
+    print("yval shape: ",Y_val.shape)
+    print("ytrain shape: ", Y_train.shape)
+    print("xval",X_val)
+    print("xtrain", X_train)
+
+    for i in range(X_val.shape[1]):
+        print("inside forloop")
+        print("X shape", X_val.shape)
+        print("W shape", W.shape)
+        X_val[:,i]@W
+
+
+    return 1
+        
 
 # --- Setup Argument Parser ---
 parser = argparse.ArgumentParser(
