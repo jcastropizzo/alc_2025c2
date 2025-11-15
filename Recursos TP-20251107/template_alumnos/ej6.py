@@ -1,5 +1,12 @@
 from alc import *
 import numpy as np
+from dataset import cargarDataset
+from pathlib import Path
+#from ej2 import pinvEcuacionesNormales
+from ej3 import pinvSVD
+from ej4 import pinvHouseHolder, pinvGramSchmidt
+from ej5 import esPseudoInversa
+import time
 
 def matriz_confusion(W, X_val, Y_val):
     conf_mat = np.array([[0,0],[0,0]])
@@ -48,3 +55,29 @@ def validate_transferlearning(W, X_val, Y_val):
     print(f"\n--- Resultados de Validación ---")
     print(f"Precisión (Accuracy): {accuracy:.2f}%")
     print(f"Clasificó correctamente {predicciones_correctas} de {samples} muestras.")
+    return accuracy
+
+
+def benchmark():
+    X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
+
+    #SVD
+    start_time = time.perf_counter()
+    U, srow, V = np.linalg.svd(X_train)
+    S = np.diag(srow)
+    W_SVD = pinvSVD(U, S, V, Y_train,'np')
+    end_time = time.perf_counter()
+    SVD_time = end_time - start_time
+    print(f"SVD exercise executed in: {SVD_time:.4f} seconds")
+    SVD_accuracy = validate_transferlearning(W_SVD,X_val,Y_val)
+    matriz_confusion(W_SVD, X_val, Y_val)
+
+    #QR
+    start_time = time.perf_counter()
+    Q, R = QR_con_GS(X_train)
+    W_GS =  pinvGramSchmidt(Q, R, Y_train)
+    end_time = time.perf_counter()
+    GS_time = end_time - start_time
+    print(f"GS exercise executed in: {GS_time:.4f} seconds")
+    GS_accuracy = validate_transferlearning(W_GS,X_val,Y_val)
+    matriz_confusion(W_GS, X_val, Y_val)
