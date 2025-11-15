@@ -65,6 +65,9 @@ def esSimetrica(A):
 # Uso lo que tengo en aux.c
 def calcularAxFast(A,x):
   pass
+
+def matMulFast(A, B):
+  raise Exception("Was not able to use C lib")
   
 
 def calcularAx(A,x):
