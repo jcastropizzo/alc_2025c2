@@ -5,29 +5,22 @@ import numpy as np
 import sys
 import argparse
 
-def test():
-    return 1
-
 def pinvSVD(U, S, V, Y,imp='alc'):
     n = U.shape[0]
-    p = V.shape[0]
 
     if imp == 'np':
-        print("Inside pinSVD, I entered np option...")
         Ut = transpuesta(U)
         Vt = transpuesta(V) # En realidad SVD devuelve V transpuesta, por lo cual usamos V en la inversa de X. Mantengo naming conventions del enunciado.
         V1 = Vt[:,0:n]
+        S = inversa(S)
+        return matMul(matMul(matMul(transpuesta(Y),V1),S),Ut)
+
+    elif imp == 'alc':
+        Ut = U.T
+        Vt = V.T # En realidad SVD devuelve V transpuesta, por lo cual usamos V en la inversa de X. Mantengo naming conventions del enunciado.
+        V1 = Vt[:,0:n]
         S = np.linalg.pinv(S)
         return Y.T@V1@S@Ut
-    elif imp == 'alc':
-        #implement alc version
-        return 1
-
-def alc_imp():
-    X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
-    U, S, V = svd_reducida(X_train)
-    return pinvSVD(U, S, V, Y_train,'alc')
-
 
 def validate_transferlearning(W, X_val, Y_val):
     predicciones_correctas = 0
@@ -47,6 +40,10 @@ def validate_transferlearning(W, X_val, Y_val):
     print(f"Precisión (Accuracy): {accuracy:.2f}%")
     print(f"Clasificó correctamente {predicciones_correctas} de {samples} muestras.")
 
+def alc_imp():
+    X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
+    U, S, V = svd_reducida(X_train)
+    return pinvSVD(U, S, V, Y_train,'alc')
 
 def np_imp():
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
@@ -77,8 +74,10 @@ try:
 
     # Use an if/elif/else structure to branch based on the parameter's value
     if args.mode == "np":
+        print("Corriendo implementación de NumPy...")
         np_imp()
     elif args.mode == "alc":
+        print("Corriendo implementación de ALC...")
         alc_imp()
 
 except SystemExit:
