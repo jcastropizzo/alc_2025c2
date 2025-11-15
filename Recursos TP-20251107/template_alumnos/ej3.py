@@ -42,32 +42,32 @@ def np_imp():
     matriz_confusion(W, X_val, Y_val)
     return 1
 
-# --- Setup Argument Parser ---
-parser = argparse.ArgumentParser(
-    description="Process data based on the mode: 'np' (Non-Photometric) or 'alc' (Alkali Content)."
-)
-
-# Define the positional argument named 'mode'
-parser.add_argument(
-    "mode",
-    choices=["np", "alc"],  # This restricts the input to only these two strings
-    help="The desired execution mode: 'np' or 'alc'."
-)
-
-# --- Parse and Handle Input ---
-try:
-    args = parser.parse_args()
-
-    # Use an if/elif/else structure to branch based on the parameter's value
-    if args.mode == "np":
-        print("Corriendo implementación de NumPy...")
-        np_imp()
-    elif args.mode == "alc":
-        print("Corriendo implementación de ALC...")
-        alc_imp()
-
-except SystemExit:
-    # argparse raises SystemExit if the input is invalid (e.g., neither 'np' nor 'alc')
-    # and prints the automatic help message.
-    sys.exit(1)
+# # --- Setup Argument Parser ---
+# parser = argparse.ArgumentParser(
+#     description="Process data based on the mode: 'np' (Non-Photometric) or 'alc' (Alkali Content)."
+# )
+#
+# # Define the positional argument named 'mode'
+# parser.add_argument(
+#     "mode",
+#     choices=["np", "alc"],  # This restricts the input to only these two strings
+#     help="The desired execution mode: 'np' or 'alc'."
+# )
+#
+# # --- Parse and Handle Input ---
+# try:
+#     args = parser.parse_args()
+#
+#     # Use an if/elif/else structure to branch based on the parameter's value
+#     if args.mode == "np":
+#         print("Corriendo implementación de NumPy...")
+#         np_imp()
+#     elif args.mode == "alc":
+#         print("Corriendo implementación de ALC...")
+#         alc_imp()
+#
+# except SystemExit:
+#     # argparse raises SystemExit if the input is invalid (e.g., neither 'np' nor 'alc')
+#     # and prints the automatic help message.
+#     sys.exit(1)
 
