@@ -474,8 +474,6 @@ def metpot2k(A, tol=1e-15, max_iter=1000):
     max_iter = int(max_iter)
 
     for k in range(max_iter):
-        metpot_start = time.perf_counter()
-        print(f"Calculando iteracion interna metpot: {k}/{max_iter}")
         w = matMul(A,(matMul(A,v)))
         norma_w = norma(w,2)
         if norma_w < tol:
@@ -489,100 +487,117 @@ def metpot2k(A, tol=1e-15, max_iter=1000):
 
         v = v_nuevo
         l_prev = l_nuevo
-        metpot_end = time.perf_counter()
-        metpot_iter = metpot_end - metpot_start
-        print(f"Iteración terminó en {metpot_iter} segundos.")
 
     print(f"El método no convergió después de {max_iter} iteraciones.")
     return v, l_nuevo, max_iter
 
-def diagRH(A_original, tol = 1e-15, K = 1000):
+
+def aplica_H_derecha(A, u_vec, u_norma_sq):
+    """
+    Calcula A_new = A @ H de forma eficiente en O(n^2).
+    H = I - 2*u*u.T / u_norma_sq
+    A_new = A @ (I - 2*u*u.T / u_norma_sq)
+    A_new = A - (A @ u) @ (2 * u.T / u_norma_sq)
+    """
+    if u_norma_sq < 1e-20:
+        return A
+
+    # (m, n) @ (n, 1) -> (m, 1)
+    Au = matMul(A, u_vec)
+    # (1, n)
+    ut = transpuesta(u_vec)
+    # scalar
+    const = 2.0 / u_norma_sq
+
+    # (m, 1) @ (1, n) -> (m, n)
+    termino = matMul(Au, ut) * const
+    return A - termino
+
+
+def aplica_H_izquierda(A, u_vec, u_norma_sq):
+    """
+    Calcula A_new = H @ A de forma eficiente en O(n^2).
+    H = I - 2*u*u.T / u_norma_sq
+    A_new = (I - 2*u*u.T / u_norma_sq) @ A
+    A_new = A - (2 * u / u_norma_sq) @ (u.T @ A)
+    """
+    if u_norma_sq < 1e-20:
+        return A
+
+    # (1, n) @ (n, m) -> (1, m)
+    u_t_A = matMul(transpuesta(u_vec), A)
+    # scalar
+    const = 2.0 / u_norma_sq
+
+    # (n, 1) @ (1, m) -> (n, m)
+    termino = matMul(u_vec, u_t_A) * const
+    return A - termino
+
+
+def diagRH(A_original, tol=1e-15, K=1000):
+    """
+    Diagonaliza A (simétrica) usando deflación de Householder
+    de forma iterativa y eficiente (O(n^3)).
+    """
     n = A_original.shape[0]
 
+    # Manejar casos borde
     if n == 0:
-        return np.array([]).reshape(0,0), np.array([]).reshape(0,0)
+        return np.array([]).reshape(0, 0), np.array([]).reshape(0, 0)
     if n == 1:
         return np.eye(1), np.copy(A_original)
 
-    D_eigenvalues = [] # To store the diagonal parts (autovalor) from each step
-    H_transformations = [] # To store the H_v from each step
+    D = np.zeros((n, n))
+    S_final = np.eye(n)
+    B = np.copy(A_original)  # B es la matriz de trabajo que será deflacionada
 
-    print("Creando copia de A...")
-    current_A = np.copy(A_original)
-    print("Copia de A creada.")
-
-    print(f"Total de iteraciones: {n}.")
-    for i in range(n - 1): # Loop from i=0 to n-2
+    for i in range(n):  # Loop n veces
         iter_start_time = time.perf_counter()
-        print(f"Iteración nro {i}/{n}...")
-        current_n = current_A.shape[0]
-        print(f"Dimensiones: {current_A.shape}")
 
-        # Step 1: Calculate dominant eigenvector/eigenvalue of current_A
-        print("Calculando metpot2k...")
-        (autovector, autovalor, eps) = metpot2k(current_A, tol, K)
-        print("metpot2k calculado")
-        D_eigenvalues.append(autovalor) # Store the dominant eigenvalue
+        # 1. Definir el subproblema actual B[i:, i:]
+        A_sub = B[i:, i:]
+        n_sub = A_sub.shape[0]
 
-        # Step 2: Construct Householder matrix H_v for current_A
-        I_current = np.eye(current_n)
-        e_i = np.zeros_like(autovector)
-        e_i[0] = 1
+        # 2. Encontrar autovalor/autovector dominante del subproblema
+        # (Usamos tu metpot2k que es k*O(n_sub^2), lo cual es correcto)
+        (autovector_sub, autovalor, k) = metpot2k(A_sub, tol, K)
 
-        u = (e_i - autovector).reshape(-1, 1)
-        print("Transponiendo U...")
-        u_t = transpuesta(u)
-        print("U transpuesta.")
-        print("Calculando norma de U...")
-        u_norma_sq = norma(u, 2)**2
-        print("Norma de U calculada.")
+        D[i, i] = autovalor
 
-        # Handle case where u_norma is zero or very small (vector is already aligned)
-        print("Chequeando si norma de U es casi 0")
-        if u_norma_sq < 1e-18: # A small threshold to avoid division by zero
-            H_v = I_current
-        else:
-            H_v = I_current - 2 * (matMul(u, u_t) / u_norma_sq)
-        print("Chequeo de norma == 0 completo.")
-        H_transformations.append(H_v) # Store H_v
+        if n_sub == 1:
+            break  # Es el último elemento, no hay más que deflacionar
 
-        # Transform current_A and get the submatrix for the next iteration
-        print("Aplicando transformacion....")
-        B = matMul(H_v, matMul(current_A, transpuesta(H_v)))
-        print("Transformacion calculada.")
-        current_A = B[1:, 1:] # This becomes the new current_A for the next iteration
+        # 3. Construir el vector u para la reflexión de Householder
+        e_0 = np.zeros((n_sub, 1))
+        e_0[0] = 1.0
+
+        if autovector_sub.shape[1] != 1:
+            autovector_sub = autovector_sub.reshape(-1, 1)
+
+        # Fórmula numéricamente estable para u
+        norma_v = norma(autovector_sub, 2)
+        sign_v0 = 1.0 if autovector_sub[0, 0] >= 0 else -1.0
+        u_sub = autovector_sub + sign_v0 * norma_v * e_0
+        u_norma_sq = norma(u_sub, 2) ** 2
+
+        if u_norma_sq < tol:
+            # El autovector ya es e_0, no se necesita reflexión
+            continue
+
+        # 4. "Embed" u_sub en un vector de tamaño completo n
+        u_full = np.zeros((n, 1))
+        u_full[i:] = u_sub
+
+        # 5. Acumular S_final = S_final @ H_full (Operación O(n^2))
+        S_final = aplica_H_derecha(S_final, u_full, u_norma_sq)
+
+        # 6. Deflacionar B = H_full @ B @ H_full (Operación O(n^2))
+        # H es simétrica (H = H.T)
+        B = aplica_H_izquierda(B, u_full, u_norma_sq)
+        B = aplica_H_derecha(B, u_full, u_norma_sq)
 
         iter_end_time = time.perf_counter()
-        iter_time = iter_end_time - iter_start_time
-        print(f"Iteración calculada en {iter_time:.4f} segundos")
-
-    # After the loop, current_A is 1x1, its single element is the last eigenvalue
-    if current_A.shape[0] == 1:
-        D_eigenvalues.append(current_A[0, 0])
-
-    # Reconstruct D matrix
-    D = np.zeros((n, n))
-    for i in range(n):
-        D[i, i] = D_eigenvalues[i]
-
-    # Reconstruct S matrix using the H_transformations in reverse order
-    # S_current_block represents the 'S_nuevo' from the recursive step
-    S_current_block = np.eye(1) # Base case for the smallest block (1x1)
-
-    for i in range(n - 2, -1, -1): # Iterate from n-2 down to 0
-        H_v_level = H_transformations[i] # H_v for the (n-i)x(n-i) matrix
-        current_block_size = H_v_level.shape[0]
-
-        # Create S_extra for this level: block diagonal (1, S_current_block)
-        S_extra_block = np.eye(current_block_size)
-        S_extra_block[1:, 1:] = S_current_block
-
-        # S for this level is H_v_level @ S_extra_block
-        S_current_block = matMul(H_v_level, S_extra_block)
-
-    S = S_current_block # This is the final S matrix
-
-    return (S, D)
+    return (S_final, D)
 
 # TO HERE NEW FUNCTIONS <<<------
 
