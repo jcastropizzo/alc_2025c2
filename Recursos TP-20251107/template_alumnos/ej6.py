@@ -81,3 +81,12 @@ def benchmark():
     print(f"GS exercise executed in: {GS_time:.4f} seconds")
     GS_accuracy = validate_transferlearning(W_GS,X_val,Y_val)
     matriz_confusion(W_GS, X_val, Y_val)
+
+    print("\n" + "--- Tablas de resultados ---".center(45))
+    print(" " * 15 + " Tiempo | Accuracy |")
+    print(" " * 17 + "-" * 37)
+    print(f"SVD  | {SVD_time:^15} | {SVD_accuracy:^17} |")
+    print(" " * 17 + "-" * 37)
+    print(f"GS | {GS_time:^15} | {GS_accuracy:^17} |")
+    print(" " * 17 + "-" * 37)
+    print("\n")
