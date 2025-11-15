@@ -4,7 +4,7 @@ from alc import *
 import numpy as np
 import sys
 import argparse
-from ej6 import *
+from ej6 import validate_transferlearning, matriz_confusion
 
 def pinvSVD(U, S, V, Y,imp='alc'):
     n = U.shape[0]
@@ -25,7 +25,10 @@ def pinvSVD(U, S, V, Y,imp='alc'):
     return None
 
 def alc_imp():
+    print("Cagando dataset...")
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
+    print("Dataset cargado")
+    print("Calculando svd_reducida...")
     U, S, V = svd_reducida(X_train)
     W = pinvSVD(U, S, V, Y_train,'alc')
     validate_transferlearning(W,X_val,Y_val)
