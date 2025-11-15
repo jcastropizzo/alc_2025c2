@@ -4,46 +4,32 @@ from alc import *
 import numpy as np
 import sys
 import argparse
+from ej6 import *
 
 def pinvSVD(U, S, V, Y,imp='alc'):
     n = U.shape[0]
 
-    if imp == 'np':
+    if imp == 'alc':
         Ut = transpuesta(U)
         Vt = transpuesta(V) # En realidad SVD devuelve V transpuesta, por lo cual usamos V en la inversa de X. Mantengo naming conventions del enunciado.
         V1 = Vt[:,0:n]
         S = inversa(S)
         return matMul(matMul(matMul(transpuesta(Y),V1),S),Ut)
 
-    elif imp == 'alc':
+    elif imp == 'np':
         Ut = U.T
         Vt = V.T # En realidad SVD devuelve V transpuesta, por lo cual usamos V en la inversa de X. Mantengo naming conventions del enunciado.
         V1 = Vt[:,0:n]
         S = np.linalg.pinv(S)
         return Y.T@V1@S@Ut
-
-def validate_transferlearning(W, X_val, Y_val):
-    predicciones_correctas = 0
-    samples = X_val.shape[1]
-    for i in range(samples):
-        y_true_vector = Y_val[i, :]
-        ei = W @ X_val[:, i]
-        predicted_class = np.argmax(ei)
-        true_class = np.argmax(y_true_vector)
-        if predicted_class == true_class:
-            predicciones_correctas += 1
-        # print("iteration", i, ":",ei)
-        # print("iteration", i, " Y",Y_val[i,:])
-
-    accuracy = (predicciones_correctas / samples) * 100
-    print(f"\n--- Resultados de Validación ---")
-    print(f"Precisión (Accuracy): {accuracy:.2f}%")
-    print(f"Clasificó correctamente {predicciones_correctas} de {samples} muestras.")
+    return None
 
 def alc_imp():
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
     U, S, V = svd_reducida(X_train)
-    return pinvSVD(U, S, V, Y_train,'alc')
+    W = pinvSVD(U, S, V, Y_train,'alc')
+    validate_transferlearning(W,X_val,Y_val)
+    matriz_confusion(W, X_val, Y_val)
 
 def np_imp():
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
@@ -53,8 +39,8 @@ def np_imp():
     W = pinvSVD(U, S, V, Y_train,'np')
 
     validate_transferlearning(W,X_val,Y_val)
+    matriz_confusion(W, X_val, Y_val)
     return 1
-        
 
 # --- Setup Argument Parser ---
 parser = argparse.ArgumentParser(
