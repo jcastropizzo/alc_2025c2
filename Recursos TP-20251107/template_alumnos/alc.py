@@ -788,7 +788,17 @@ try:
     except AttributeError:
         # Try without underscore (Linux/standard convention)
         calcularAX_func = aux.calcularAX
-    
+    try:
+        # Try with underscore prefix (macOS convention)
+        matMul_func = aux._matMul
+    except AttributeError:
+        # Try without underscore (Linux/standard convention)
+        matMul_func = aux.matMul
+      
+    matMul_func.argtypes = [
+      ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float),
+      ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int, ctypes.c_int
+    ]
     # 5. Configure function types (remains the same as this is C-specific)
     calcularAX_func.argtypes = [
       ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float),
@@ -815,6 +825,29 @@ try:
       # Call the C function
       calcularAX_func(A_ctypes, x_ctypes, res_ctypes, n_rows, n_cols)
       return res
+    
+    def matMulFast(A, B):
+      # Ensure inputs are float32 and contiguous for C compatibility
+      A_f32 = np.ascontiguousarray(A, dtype=np.float32)
+      B_f32 = np.ascontiguousarray(B, dtype=np.float32)
+      
+      n_rows = A_f32.shape[0]
+      n_cols_A = A_f32.shape[1]
+      n_cols_B = B_f32.shape[1]
+      
+      # Convert numpy data buffers to C pointers
+      A_ctypes = A_f32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+      B_ctypes = B_f32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+      
+      # Prepare the result buffer
+      res = np.zeros((n_rows, n_cols_B), dtype=np.float32)
+      res_ctypes = res.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+
+      # Call the C function
+      matMul_func(A_ctypes, B_ctypes, res_ctypes, n_rows, n_cols_A, n_cols_B)
+      return res
+    
+    matMul = matMulFast
     
     # Set the public function to the fast C version
     calcularAxFast = _calcularAxFast

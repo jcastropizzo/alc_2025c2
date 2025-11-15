@@ -2,19 +2,23 @@ import numpy
 from dataset import cargarDataset
 from pathlib import Path
 from alc import *
+from ej6 import *
 
 data_path = Path("./dataset/cats_and_dogs")
 X_train, Y_train, X_val, Y_val = cargarDataset(data_path)
+
+X_train = X_train[:,850:1150]
+Y_train = Y_train[850:1150,:]
+
+# Transpose Y to match expected dimensions: (classes x samples) instead of (samples x classes)
+Y_train = transpuesta(Y_train)
+Y_val = transpuesta(Y_val)
 
 print("Xt: ", X_train.shape)
 print("Yt: ", Y_train.shape)
 print("Xv: ", X_val.shape)
 print("Yv: ", Y_val.shape)
 
-X_train = X_train[:,:100]
-Y_train = Y_train[:100,:]
-print(X_train.shape)
-print(Y_train.shape)
 # Me queda con que L * L transpuesta (cholesky) * U = X transpuesta
 # Lo copado de esto es que L es triangular inferior, y Lt es triangular superior
 # Entonces resolver los sistemas es mas o menos sencillo por ej si tengo
@@ -30,50 +34,65 @@ print(Y_train.shape)
 
 
 # Hago esto para usar versiones mas rapidas que las que escribimos a manopla
-transpose = numpy.transpose
+transpose = transpuesta
 solve = numpy.linalg.solve
 cholesky = cholesky
 #mul = lambda A, B: A @ B
 mul = matMul
 
 def caso1(X, Y, transpose, solve, cholesky, matmul):
-    A = matmul(X, transpose(X))
+    X_T = transpose(X)
+    A = matmul(X_T, X)
     L, Lt = cholesky(A)
-    B = solve(L, X)
+    # L * Lt * U = X_T
+    # L * B = X_T
+    B = solve(L, X_T)
+    # Lt * U = B
     U = solve(Lt, B)
-    W = matmul(U, Y)
+    # W = Y * U
+    W = matmul(Y, U)
     return W
 
+
+# Caso 2
+# A = X * X transpuesta
+# Quiero resolver V * A = X transpuesta
+# Que es lo mismo que hacer A transpuesta * V transpuesta = X
+# despejar W de W = Y * V
 def caso2(X, Y, transpose, solve, cholesky, matmul):
-    A = matmul(X, transpose(X))
-    L, Lt = cholesky(A)
+    X_T = transpose(X)
+    A = matmul(X, X_T)
+    A_T = transpose(A)
+    L, Lt = cholesky(A_T)
     B = solve(L, X)
-    U = solve(Lt, B)
-    W = matmul(U, Y)
+    V_T = solve(Lt, B)
+    V = transpose(V_T)
+    W = matmul(Y, V)
     return W
 
 def connected_con_cholesky(X, Y):
-    caso1(X, Y, transpose, solve, cholesky, matMulSlow)
+    print(svd_reducida(X))
+    W1 = caso1(X, Y, transpose, solve, cholesky, matMul)
+    matriz_confusion(W1, X_train, transpose(Y_train))
+    matriz_confusion(W1, X_val, transpose(Y_val))
+    W2 = caso2(X, Y, transpose, solve, cholesky, matMul)
+    matriz_confusion(W2, X_val, transpose(Y_val))
+    matriz_confusion(W2, X_train, transpose(Y_train))
+    return "W1", W2
 
-#connected_con_cholesky(X_train, Y_train)
+import cProfile
+import pstats
+from io import StringIO
 
-# Time matmulSlow vs matmul
-import time
-start = time.time()
-W2 = matMulFast(X_train, transpose(X_train))
-end = time.time()
-print("matMulFast time: ", end - start)
-start = time.time()
-W = matMul(X_train, transpose(X_train))
-end = time.time()
-print("matMul time: ", end - start)
-start = time.time()
-W2 = matMulSlow(X_train, transpose(X_train))
-end = time.time()
-print("matMulSlow time: ", end - start)
+# Profile connected_con_cholesky(X_train, Y_train)
+profiler = cProfile.Profile()
+profiler.enable()
 
+W1, W2 = connected_con_cholesky(X_train, Y_train)
 
-#Compare results for correctnes
-print(f"W: {W}, W2: {W2}")
-W_diff = numpy.abs(W - W2)
-print("Max difference between matMul and matMulSlow: ", numpy.max(W_diff))
+profiler.disable()
+stats = pstats.Stats(profiler, stream=StringIO())
+stats.strip_dirs()
+stats.sort_stats('cumulative')
+stats.print_stats(20)
+print(stats.stream.getvalue())
