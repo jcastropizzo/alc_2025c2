@@ -323,6 +323,102 @@ def esSDP(A,atol=1e-10):
     if(D[i,i] <= 0): return False
   return True
 
+def obtener_householder(A):
+    """
+    A partir de una matriz A, obtiene todas las matrices de reflexión de Householder
+    necesarias para triangularizarla (factorización QR mediante Householder).
+
+    Argumentos:
+    A (np.array): La matriz de entrada (m x n).
+
+    Devuelve:
+    list: Lista de matrices de Householder H_1, H_2, ..., H_k
+          donde k = min(m, n)
+    """
+    m, n = A.shape
+    A_trabajo = A.copy().astype(float)
+    matrices_householder = []
+
+    # Iteramos sobre cada columna (hasta min(m, n))
+    k = min(m, n)
+
+    for j in range(k):
+        # Extraemos la subcolumna desde la fila j hasta el final
+        x = A_trabajo[j:, j].copy().flatten()
+        dim_sub = len(x)
+
+        # Calculamos la norma del vector
+        norma_x = np.linalg.norm(x)
+
+        # Si la norma es muy pequeña, usamos la identidad
+        if norma_x < 1e-10:
+            H_j = np.eye(m)
+            matrices_householder.append(H_j)
+            continue
+
+        # Vector canónico e_1 de la dimensión apropiada
+        e1 = np.zeros(dim_sub)
+        e1[0] = 1.0
+
+        # Vector de reflexión: v = x +/- ||x|| * e_1
+        # Usamos el signo apropiado para evitar cancelación catastrófica
+        signo = 1.0 if x[0] >= 0 else -1.0
+        v = x + signo * norma_x * e1
+
+        # Calculamos la norma cuadrada de v para la fórmula
+        v_norma_cuadrada = np.dot(v, v)
+
+        if v_norma_cuadrada < 1e-10:
+            # Si v es muy pequeño, usamos identidad
+            H_sub = np.eye(dim_sub)
+        else:
+            # Matriz de Householder reducida: H_sub = I - 2*v*v^T/(v^T*v)
+            # Usando numpy para este producto
+            vv_T = np.outer(v, v)
+            H_sub = np.eye(dim_sub) - 2.0 * vv_T / v_norma_cuadrada
+
+        # Construimos la matriz de Householder completa (m x m)
+        H_j = np.eye(m)
+        H_j[j:, j:] = H_sub
+
+        matrices_householder.append(H_j)
+
+        # Aplicamos la transformación a la matriz de trabajo
+        A_trabajo = np.dot(H_j, A_trabajo)
+
+    return matrices_householder
+
+
+def QR_con_HH(A):
+    """
+    Realiza la factorización QR de una matriz A usando reflexiones de Householder.
+
+    Argumentos:
+    A (np.array): La matriz de entrada (m x n).
+
+    Devuelve:
+    (Q, R): tupla con las matrices Q (ortogonal, m x m) y R (triangular superior, m x n)
+            tal que A = Q * R
+    """
+    m, n = A.shape
+
+    # Obtener todas las matrices de Householder
+    matrices_H = obtener_householder(A)
+
+    # Calcular R = H_k ... H_2 H_1 A
+    R = A.copy().astype(float)
+    for H in matrices_H:
+        R = np.dot(H, R)
+
+    # Calcular Q = H_1^T H_2^T ... H_k^T
+    # Como las matrices de Householder son simétricas (H = H^T),
+    # Q = H_1 H_2 ... H_k
+    Q = np.eye(m)
+    for H in matrices_H:
+        Q = np.dot(Q, H.T)
+
+    return Q, R
+
 def QR_con_GS(A, tol=1e-12,retorna_nops=False):
     nops = 0
     Q = np.zeros(A.shape)
