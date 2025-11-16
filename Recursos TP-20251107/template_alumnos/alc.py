@@ -873,18 +873,20 @@ def svd_reducida(A, k="max", tol=1e-15):
         mult_mat_end_time = time.perf_counter()
         mult_mat_time = mult_mat_end_time - mult_mat_start_time
         print(f"A*AT calculada en {mult_mat_time:.4f} segundos")
+        diag_start = time.perf_counter()
         print("Calculando DiagRH de A*AT para obtener diagonalización")
         diagonalizacion = diagRH(B, tol,1000)
-        print("Diagonalizacion calculada")
+        diag_end = time.perf_counter()
+        print(f"Diagonalizacion calculada en {(diag_end - diag_start):.4f} segundos")
         U = diagonalizacion[0]
         D = diagonalizacion[1]
-
         autovalores_orig = np.diag(D)
         indices_ordenados = np.argsort(autovalores_orig)[::-1]
         autovalores_ordenados = autovalores_orig[indices_ordenados]
         U_ordenado = U[:, indices_ordenados]
 
         autovalores_filtrados = autovalores_ordenados[autovalores_ordenados >= tol]
+        print("Calculando valores singulares")
         valores_singulares = np.sqrt(autovalores_filtrados)
         r = len(valores_singulares)
 
@@ -897,6 +899,7 @@ def svd_reducida(A, k="max", tol=1e-15):
         hatU = U_ordenado[:, :k_eff]
 
         hatV = np.zeros((A.shape[1], k_eff))
+        print("Calculando B_v...")
         B_v = matMul(transpuesta(A), hatU)
 
         for i in range(k_eff):
