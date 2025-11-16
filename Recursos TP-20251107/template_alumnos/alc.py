@@ -561,7 +561,7 @@ def diagRH(A_original, tol=1e-15, K=1000):
 
         # 2. Encontrar autovalor/autovector dominante del subproblema
         # (Usamos tu metpot2k que es k*O(n_sub^2), lo cual es correcto)
-        print(f"Calculando metpot {i}/{n}...")
+        print(f"Calculando metpot {i}/{n} con dimension {A_sub.shape}...")
         metpot_start_time = time.perf_counter()
         (autovector_sub, autovalor, k) = metpot2k(A_sub, tol, K)
         metpot_end_time = time.perf_counter()
