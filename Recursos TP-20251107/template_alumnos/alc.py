@@ -442,8 +442,6 @@ def QR_con_GS(A, tol=1e-12,retorna_nops=False):
     else:
       return Q,R
 
-# FROM HERE NEW FUNCTIONS --->>>>
-
 def metpot2k(A, tol=1e-15, max_iter=1000):
     """
     Calcula el autovalor dominante (de mayor magnitud) y su autovector
@@ -461,10 +459,11 @@ def metpot2k(A, tol=1e-15, max_iter=1000):
       k: El número de iteraciones realizadas.
     """
     n = A.shape[0]
+    #casos base
     if n == 0:
         return np.array([]).reshape(0,1), 0.0, 0
     if n == 1:
-        return np.array([[1.0]]), A[0,0], 0 # Eigenvector for 1x1 is [[1]], eigenvalue is A[0,0]
+        return np.array([[1.0]]), A[0,0], 0
 
     v = np.random.rand(n, 1)
     v = v / norma(v,2)
@@ -551,23 +550,15 @@ def diagRH(A_original, tol=1e-15, K=1000):
     S_final = np.eye(n)
     B = np.copy(A_original)  # B es la matriz de trabajo que será deflacionada
 
-    for i in range(n):  # Loop n veces
-        print(f"Iteracion {i}/{n}")
-        iter_start_time = time.perf_counter()
-
+    for i in range(n):
         # 1. Definir el subproblema actual B[i:, i:]
         A_sub = B[i:, i:]
         n_sub = A_sub.shape[0]
 
         # 2. Encontrar autovalor/autovector dominante del subproblema
-        # (Usamos tu metpot2k que es k*O(n_sub^2), lo cual es correcto)
-        print(f"Calculando metpot {i}/{n} con dimension {A_sub.shape}...")
-        metpot_start_time = time.perf_counter()
+        if(i % 100 == 0):# Loop n veces
+            print(f"Calculando metpot {i}/{n} con dimension {A_sub.shape}...")
         (autovector_sub, autovalor, k) = metpot2k(A_sub, tol, K)
-        metpot_end_time = time.perf_counter()
-        metpot_time = metpot_end_time - metpot_start_time
-        print(f"metpot {i}/{n} tardo {metpot_time:.4f} segundos.")
-
         D[i, i] = autovalor
 
         if n_sub == 1:
@@ -581,12 +572,10 @@ def diagRH(A_original, tol=1e-15, K=1000):
             autovector_sub = autovector_sub.reshape(-1, 1)
 
         # Fórmula numéricamente estable para u
-        print("Normalizando U...")
         norma_v = norma(autovector_sub, 2)
         sign_v0 = 1.0 if autovector_sub[0, 0] >= 0 else -1.0
         u_sub = autovector_sub + sign_v0 * norma_v * e_0
         u_norma_sq = norma(u_sub, 2) ** 2
-        print("U normalizado.")
 
         if u_norma_sq < tol:
             # El autovector ya es e_0, no se necesita reflexión
@@ -596,8 +585,6 @@ def diagRH(A_original, tol=1e-15, K=1000):
         u_full = np.zeros((n, 1))
         u_full[i:] = u_sub
 
-        print("Aplicando transformación")
-        trans_start = time.perf_counter()
         # 5. Acumular S_final = S_final @ H_full (Operación O(n^2))
         S_final = aplica_H_derecha(S_final, u_full, u_norma_sq)
 
@@ -605,123 +592,7 @@ def diagRH(A_original, tol=1e-15, K=1000):
         # H es simétrica (H = H.T)
         B = aplica_H_izquierda(B, u_full, u_norma_sq)
         B = aplica_H_derecha(B, u_full, u_norma_sq)
-        trans_end = time.perf_counter()
-        trans_time = trans_end - trans_start
-        print(f"Transformación tardó {trans_time:.4f} segundos.")
-
-        iter_end_time = time.perf_counter()
     return (S_final, D)
-
-# TO HERE NEW FUNCTIONS <<<------
-
-
-#def metpot2k(A, tol=1e-15, max_iter=1000):
-#    n = A.shape[0]
-#    v = np.random.rand(n, 1)
-#    v = v / norma(v, 2)
-#    l_prev = 0.0
-#    max_iter = int(max_iter)
-#    A_cuadrado = matMul(A, A) 
-#
-#    for k in range(max_iter):
-#        w = matMul(A_cuadrado, v) 
-#
-#        norma_w = norma(w, 2)
-#        if norma_w < tol:
-#            return v, 0.0, k
-#
-#        v_nuevo = w / norma_w
-#        
-#        Av_nuevo = matMul(A, v_nuevo)
-#        l_nuevo = matMul(transpuesta(v_nuevo), Av_nuevo)[0, 0]
-#
-#        if np.abs(l_nuevo - l_prev) < tol:
-#            return v_nuevo, l_nuevo, k
-#
-#        v = v_nuevo
-#        l_prev = l_nuevo
-#
-#    print(f"El método no convergió después de {max_iter} iteraciones.")
-#    return v, l_nuevo, max_iter
-#
-#def metpot2k_old(A, tol=1e-15, max_iter=1000):
-#    """
-#    Calcula el autovalor dominante (de mayor magnitud) y su autovector
-#    correspondiente usando el método de la potencia cuadrado (iterando con A^2).
-#
-#    Argumentos:
-#    A (np.array): La matriz de entrada (n x n).
-#    tol (float): Tolerancia para la convergencia.
-#    max_iter (int/float): Número máximo de iteraciones.
-#
-#    Devuelve:
-#    (v, l, k):
-#      v: El autovector dominante (vector columna n x 1).
-#      l: El autovalor dominante (escalar).
-#      k: El número de iteraciones realizadas.
-#    """
-#    n = A.shape[0]
-#    v = np.random.rand(n, 1)
-#    v = v / norma(v,2)
-#
-#    l_prev = 0.0
-#
-#    max_iter = int(max_iter)
-#
-#    for k in range(max_iter):
-#        w = matMul(A,(matMul(A,v)))
-#        norma_w = norma(w,2)
-#        if norma_w < tol:
-#            return v, 0.0, k
-#
-#        v_nuevo = w / norma_w
-#        l_nuevo = matMul(transpuesta(v_nuevo),matMul(A,v_nuevo))[0, 0]
-#
-#        if np.abs(l_nuevo - l_prev) < tol:
-#            return v_nuevo, l_nuevo, k
-#
-#        v = v_nuevo
-#        l_prev = l_nuevo
-#
-#    print(f"El método no convergió después de {max_iter} iteraciones.")
-#    return v, l_nuevo, max_iter
-#
-#def diagRH(A, tol = 1e-15, K = 1000):
-#
-#    n = A.shape[0]
-#    (autovector,autovalor,eps) = metpot2k(A,tol,K)
-#    I = np.eye(A.shape[0])
-#    e_i = np.zeros_like(autovector)
-#    e_i[0] = 1
-#
-#    u = (e_i - autovector).reshape(-1,1)
-#    u_t = u.T
-#    u_norma = norma(u,2)
-#    H_v = I - 2*((matMul(u,u_t))/(u_norma**2))
-#
-#    if n == 2:
-#        S = H_v
-#        D = matMul(H_v,matMul(A,transpuesta(H_v)))
-#
-#    else:
-#
-#        B = matMul(H_v,matMul(A,transpuesta(H_v)))
-#        A_nuevo = B[1:,1:]
-#
-#        (S_nuevo, D_nuevo) = diagRH(A_nuevo,tol,K)
-#
-#        D = np.zeros(B.shape)
-#        D[0][0] = autovalor
-#        D[1:,1:] = D_nuevo
-#
-#        S_extra = np.zeros(B.shape)
-#        S_extra[0][0] = 1
-#        S_extra[1:,1:] = S_nuevo
-#
-#        S = matMul(H_v,S_extra)
-#
-#
-#    return (S,D)
 
 def transiciones_al_azar_continuas(n):
     """
@@ -862,11 +733,8 @@ def svd_reducida(A, k="max", tol=1e-15):
     Retorna hatU (matriz de m x k), hatSig (matriz diagonal de k x k) y hatV (matriz de n x k)
     """
     m, n = A.shape
-    print("Dimension de A:,", A.shape)
-    print(f"{m} filas y {n} columnas.")
-    
+
     if m < n:
-        print("Caso m<n")
         print("Calculando A*AT...")
         mult_mat_start_time = time.perf_counter()
         B = matMul(A, transpuesta(A))
@@ -877,7 +745,7 @@ def svd_reducida(A, k="max", tol=1e-15):
         print("Calculando DiagRH de A*AT para obtener diagonalización")
         diagonalizacion = diagRH(B, tol,1000)
         diag_end = time.perf_counter()
-        print(f"Diagonalizacion calculada en {(diag_end - diag_start):.4f} segundos")
+        print(f"Diagonalizacion calculada en {(diag_end - diag_start)/60:.4f} minutos")
         U = diagonalizacion[0]
         D = diagonalizacion[1]
         autovalores_orig = np.diag(D)
