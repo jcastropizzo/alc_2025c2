@@ -552,6 +552,7 @@ def diagRH(A_original, tol=1e-15, K=1000):
     B = np.copy(A_original)  # B es la matriz de trabajo que será deflacionada
 
     for i in range(n):  # Loop n veces
+        print(f"Iteracion {i}/{n}")
         iter_start_time = time.perf_counter()
 
         # 1. Definir el subproblema actual B[i:, i:]
@@ -560,7 +561,12 @@ def diagRH(A_original, tol=1e-15, K=1000):
 
         # 2. Encontrar autovalor/autovector dominante del subproblema
         # (Usamos tu metpot2k que es k*O(n_sub^2), lo cual es correcto)
+        print(f"Calculando metpot {i}/{n}...")
+        metpot_start_time = time.perf_counter()
         (autovector_sub, autovalor, k) = metpot2k(A_sub, tol, K)
+        metpot_end_time = time.perf_counter()
+        metpot_time = metpot_end_time - metpot_start_time
+        print(f"metpot {i}/{n} tardo {metpot_time:.4f} segundos.")
 
         D[i, i] = autovalor
 
@@ -575,10 +581,12 @@ def diagRH(A_original, tol=1e-15, K=1000):
             autovector_sub = autovector_sub.reshape(-1, 1)
 
         # Fórmula numéricamente estable para u
+        print("Normalizando U...")
         norma_v = norma(autovector_sub, 2)
         sign_v0 = 1.0 if autovector_sub[0, 0] >= 0 else -1.0
         u_sub = autovector_sub + sign_v0 * norma_v * e_0
         u_norma_sq = norma(u_sub, 2) ** 2
+        print("U normalizado.")
 
         if u_norma_sq < tol:
             # El autovector ya es e_0, no se necesita reflexión
@@ -588,6 +596,8 @@ def diagRH(A_original, tol=1e-15, K=1000):
         u_full = np.zeros((n, 1))
         u_full[i:] = u_sub
 
+        print("Aplicando transformación")
+        trans_start = time.perf_counter()
         # 5. Acumular S_final = S_final @ H_full (Operación O(n^2))
         S_final = aplica_H_derecha(S_final, u_full, u_norma_sq)
 
@@ -595,6 +605,9 @@ def diagRH(A_original, tol=1e-15, K=1000):
         # H es simétrica (H = H.T)
         B = aplica_H_izquierda(B, u_full, u_norma_sq)
         B = aplica_H_derecha(B, u_full, u_norma_sq)
+        trans_end = time.perf_counter()
+        trans_time = trans_end - trans_start
+        print(f"Transformación tardó {trans_time:.4f} segundos.")
 
         iter_end_time = time.perf_counter()
     return (S_final, D)
