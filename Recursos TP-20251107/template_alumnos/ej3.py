@@ -4,29 +4,67 @@ from alc import *
 import numpy as np
 import sys
 import argparse
-from ej6 import *
+from ej6 import validate_transferlearning, matriz_confusion
+import time
+
+main_time_start = time.perf_counter()
+
+def inversa_diagonal(A):
+    # 1. Create a writeable copy of the array A
+    B = A.copy()
+    for i in range(B.shape[0]):
+        if(B[i,i] != 0):
+            B[i,i] = 1/B[i,i]
+    return B
 
 def pinvSVD(U, S, V, Y,imp='alc'):
     n = U.shape[0]
 
     if imp == 'alc':
+        print("Transponiendo U...")
         Ut = transpuesta(U)
-        Vt = transpuesta(V) # En realidad SVD devuelve V transpuesta, por lo cual usamos V en la inversa de X. Mantengo naming conventions del enunciado.
-        V1 = Vt[:,0:n]
-        S = inversa(S)
-        return matMul(matMul(matMul(transpuesta(Y),V1),S),Ut)
+        print("Transponiendo V...")
+        V1 = V[:,0:n]
+        print("Invirtiendo S...")
+        St = inversa_diagonal(S)
+        print("Dimensiones Ut:", Ut.shape)
+        print("Dimensiones V1:", V1.shape)
+        print("Dimensiones S:", St.shape)
+        print("Dimensiones Y:", Y.shape)
+
+        print("calculando W...")
+        W_start_time = time.perf_counter()
+        W = matMul(matMul(matMul(transpuesta(Y),V1),St),Ut)
+        print(f"W calculado en : {time.perf_counter() - W_start_time:.4f} sec")
+        main_time_end = time.perf_counter()
+        elapsed = main_time_end - main_time_start
+        print(f"Elapsed time: {elapsed:.4f} sec")
+        return W
 
     elif imp == 'np':
         Ut = U.T
         Vt = V.T # En realidad SVD devuelve V transpuesta, por lo cual usamos V en la inversa de X. Mantengo naming conventions del enunciado.
         V1 = Vt[:,0:n]
         S = np.linalg.pinv(S)
-        return Y.T@V1@S@Ut
+        main_time_end = time.perf_counter()
+        elapsed = main_time_end - main_time_start
+        W = Y.T @ V1 @ S @ Ut
+        print(f"Elapsed time: {elapsed:.4f} sec")
+        return W
     return None
 
 def alc_imp():
+    print("Cagando dataset...")
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
+    print("Dataset cargado")
+    print("Calculando svd_reducida...")
     U, S, V = svd_reducida(X_train)
+    print("SVD calculado")
+    print("Dimensiones U:", U.shape)
+    print("Dimensiones S:", S.shape)
+    print("Dimensiones V:", V.shape)
+    print("Dimensiones Y_train", Y_train.shape)
+    print("Entrando en pinvSVD...")
     W = pinvSVD(U, S, V, Y_train,'alc')
     validate_transferlearning(W,X_val,Y_val)
     matriz_confusion(W, X_val, Y_val)

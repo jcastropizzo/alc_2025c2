@@ -12,7 +12,7 @@ import math #para sqrt en labo8
 import ctypes
 import sys
 import os
-   
+import time   
 
 def esCuadrada(A):
   return A.shape[0] == A.shape[1]
@@ -442,36 +442,9 @@ def QR_con_GS(A, tol=1e-12,retorna_nops=False):
     else:
       return Q,R
 
+# FROM HERE NEW FUNCTIONS --->>>>
+
 def metpot2k(A, tol=1e-15, max_iter=1000):
-    n = A.shape[0]
-    v = np.random.rand(n, 1)
-    v = v / norma(v, 2)
-    l_prev = 0.0
-    max_iter = int(max_iter)
-    A_cuadrado = matMul(A, A) 
-
-    for k in range(max_iter):
-        w = matMul(A_cuadrado, v) 
-
-        norma_w = norma(w, 2)
-        if norma_w < tol:
-            return v, 0.0, k
-
-        v_nuevo = w / norma_w
-        
-        Av_nuevo = matMul(A, v_nuevo)
-        l_nuevo = matMul(transpuesta(v_nuevo), Av_nuevo)[0, 0]
-
-        if np.abs(l_nuevo - l_prev) < tol:
-            return v_nuevo, l_nuevo, k
-
-        v = v_nuevo
-        l_prev = l_nuevo
-
-    print(f"El método no convergió después de {max_iter} iteraciones.")
-    return v, l_nuevo, max_iter
-
-def metpot2k_old(A, tol=1e-15, max_iter=1000):
     """
     Calcula el autovalor dominante (de mayor magnitud) y su autovector
     correspondiente usando el método de la potencia cuadrado (iterando con A^2).
@@ -488,6 +461,11 @@ def metpot2k_old(A, tol=1e-15, max_iter=1000):
       k: El número de iteraciones realizadas.
     """
     n = A.shape[0]
+    if n == 0:
+        return np.array([]).reshape(0,1), 0.0, 0
+    if n == 1:
+        return np.array([[1.0]]), A[0,0], 0 # Eigenvector for 1x1 is [[1]], eigenvalue is A[0,0]
+
     v = np.random.rand(n, 1)
     v = v / norma(v,2)
 
@@ -513,42 +491,237 @@ def metpot2k_old(A, tol=1e-15, max_iter=1000):
     print(f"El método no convergió después de {max_iter} iteraciones.")
     return v, l_nuevo, max_iter
 
-def diagRH(A, tol = 1e-15, K = 1000):
 
-    n = A.shape[0]
-    (autovector,autovalor,eps) = metpot2k(A,tol,K)
-    I = np.eye(A.shape[0])
-    e_i = np.zeros_like(autovector)
-    e_i[0] = 1
+def aplica_H_derecha(A, u_vec, u_norma_sq):
+    """
+    Calcula A_new = A @ H de forma eficiente en O(n^2).
+    H = I - 2*u*u.T / u_norma_sq
+    A_new = A @ (I - 2*u*u.T / u_norma_sq)
+    A_new = A - (A @ u) @ (2 * u.T / u_norma_sq)
+    """
+    if u_norma_sq < 1e-20:
+        return A
 
-    u = (e_i - autovector).reshape(-1,1)
-    u_t = u.T
-    u_norma = norma(u,2)
-    H_v = I - 2*((matMul(u,u_t))/(u_norma**2))
+    # (m, n) @ (n, 1) -> (m, 1)
+    Au = matMul(A, u_vec)
+    # (1, n)
+    ut = transpuesta(u_vec)
+    # scalar
+    const = 2.0 / u_norma_sq
 
-    if n == 2:
-        S = H_v
-        D = matMul(H_v,matMul(A,transpuesta(H_v)))
-
-    else:
-
-        B = matMul(H_v,matMul(A,transpuesta(H_v)))
-        A_nuevo = B[1:,1:]
-
-        (S_nuevo, D_nuevo) = diagRH(A_nuevo,tol,K)
-
-        D = np.zeros(B.shape)
-        D[0][0] = autovalor
-        D[1:,1:] = D_nuevo
-
-        S_extra = np.zeros(B.shape)
-        S_extra[0][0] = 1
-        S_extra[1:,1:] = S_nuevo
-
-        S = matMul(H_v,S_extra)
+    # (m, 1) @ (1, n) -> (m, n)
+    termino = matMul(Au, ut) * const
+    return A - termino
 
 
-    return (S,D)
+def aplica_H_izquierda(A, u_vec, u_norma_sq):
+    """
+    Calcula A_new = H @ A de forma eficiente en O(n^2).
+    H = I - 2*u*u.T / u_norma_sq
+    A_new = (I - 2*u*u.T / u_norma_sq) @ A
+    A_new = A - (2 * u / u_norma_sq) @ (u.T @ A)
+    """
+    if u_norma_sq < 1e-20:
+        return A
+
+    # (1, n) @ (n, m) -> (1, m)
+    u_t_A = matMul(transpuesta(u_vec), A)
+    # scalar
+    const = 2.0 / u_norma_sq
+
+    # (n, 1) @ (1, m) -> (n, m)
+    termino = matMul(u_vec, u_t_A) * const
+    return A - termino
+
+
+def diagRH(A_original, tol=1e-15, K=1000):
+    """
+    Diagonaliza A (simétrica) usando deflación de Householder
+    de forma iterativa y eficiente (O(n^3)).
+    """
+    n = A_original.shape[0]
+
+    # Manejar casos borde
+    if n == 0:
+        return np.array([]).reshape(0, 0), np.array([]).reshape(0, 0)
+    if n == 1:
+        return np.eye(1), np.copy(A_original)
+
+    D = np.zeros((n, n))
+    S_final = np.eye(n)
+    B = np.copy(A_original)  # B es la matriz de trabajo que será deflacionada
+
+    for i in range(n):  # Loop n veces
+        print(f"Iteracion {i}/{n}")
+        iter_start_time = time.perf_counter()
+
+        # 1. Definir el subproblema actual B[i:, i:]
+        A_sub = B[i:, i:]
+        n_sub = A_sub.shape[0]
+
+        # 2. Encontrar autovalor/autovector dominante del subproblema
+        # (Usamos tu metpot2k que es k*O(n_sub^2), lo cual es correcto)
+        print(f"Calculando metpot {i}/{n} con dimension {A_sub.shape}...")
+        metpot_start_time = time.perf_counter()
+        (autovector_sub, autovalor, k) = metpot2k(A_sub, tol, K)
+        metpot_end_time = time.perf_counter()
+        metpot_time = metpot_end_time - metpot_start_time
+        print(f"metpot {i}/{n} tardo {metpot_time:.4f} segundos.")
+
+        D[i, i] = autovalor
+
+        if n_sub == 1:
+            break  # Es el último elemento, no hay más que deflacionar
+
+        # 3. Construir el vector u para la reflexión de Householder
+        e_0 = np.zeros((n_sub, 1))
+        e_0[0] = 1.0
+
+        if autovector_sub.shape[1] != 1:
+            autovector_sub = autovector_sub.reshape(-1, 1)
+
+        # Fórmula numéricamente estable para u
+        print("Normalizando U...")
+        norma_v = norma(autovector_sub, 2)
+        sign_v0 = 1.0 if autovector_sub[0, 0] >= 0 else -1.0
+        u_sub = autovector_sub + sign_v0 * norma_v * e_0
+        u_norma_sq = norma(u_sub, 2) ** 2
+        print("U normalizado.")
+
+        if u_norma_sq < tol:
+            # El autovector ya es e_0, no se necesita reflexión
+            continue
+
+        # 4. "Embed" u_sub en un vector de tamaño completo n
+        u_full = np.zeros((n, 1))
+        u_full[i:] = u_sub
+
+        print("Aplicando transformación")
+        trans_start = time.perf_counter()
+        # 5. Acumular S_final = S_final @ H_full (Operación O(n^2))
+        S_final = aplica_H_derecha(S_final, u_full, u_norma_sq)
+
+        # 6. Deflacionar B = H_full @ B @ H_full (Operación O(n^2))
+        # H es simétrica (H = H.T)
+        B = aplica_H_izquierda(B, u_full, u_norma_sq)
+        B = aplica_H_derecha(B, u_full, u_norma_sq)
+        trans_end = time.perf_counter()
+        trans_time = trans_end - trans_start
+        print(f"Transformación tardó {trans_time:.4f} segundos.")
+
+        iter_end_time = time.perf_counter()
+    return (S_final, D)
+
+# TO HERE NEW FUNCTIONS <<<------
+
+
+#def metpot2k(A, tol=1e-15, max_iter=1000):
+#    n = A.shape[0]
+#    v = np.random.rand(n, 1)
+#    v = v / norma(v, 2)
+#    l_prev = 0.0
+#    max_iter = int(max_iter)
+#    A_cuadrado = matMul(A, A) 
+#
+#    for k in range(max_iter):
+#        w = matMul(A_cuadrado, v) 
+#
+#        norma_w = norma(w, 2)
+#        if norma_w < tol:
+#            return v, 0.0, k
+#
+#        v_nuevo = w / norma_w
+#        
+#        Av_nuevo = matMul(A, v_nuevo)
+#        l_nuevo = matMul(transpuesta(v_nuevo), Av_nuevo)[0, 0]
+#
+#        if np.abs(l_nuevo - l_prev) < tol:
+#            return v_nuevo, l_nuevo, k
+#
+#        v = v_nuevo
+#        l_prev = l_nuevo
+#
+#    print(f"El método no convergió después de {max_iter} iteraciones.")
+#    return v, l_nuevo, max_iter
+#
+#def metpot2k_old(A, tol=1e-15, max_iter=1000):
+#    """
+#    Calcula el autovalor dominante (de mayor magnitud) y su autovector
+#    correspondiente usando el método de la potencia cuadrado (iterando con A^2).
+#
+#    Argumentos:
+#    A (np.array): La matriz de entrada (n x n).
+#    tol (float): Tolerancia para la convergencia.
+#    max_iter (int/float): Número máximo de iteraciones.
+#
+#    Devuelve:
+#    (v, l, k):
+#      v: El autovector dominante (vector columna n x 1).
+#      l: El autovalor dominante (escalar).
+#      k: El número de iteraciones realizadas.
+#    """
+#    n = A.shape[0]
+#    v = np.random.rand(n, 1)
+#    v = v / norma(v,2)
+#
+#    l_prev = 0.0
+#
+#    max_iter = int(max_iter)
+#
+#    for k in range(max_iter):
+#        w = matMul(A,(matMul(A,v)))
+#        norma_w = norma(w,2)
+#        if norma_w < tol:
+#            return v, 0.0, k
+#
+#        v_nuevo = w / norma_w
+#        l_nuevo = matMul(transpuesta(v_nuevo),matMul(A,v_nuevo))[0, 0]
+#
+#        if np.abs(l_nuevo - l_prev) < tol:
+#            return v_nuevo, l_nuevo, k
+#
+#        v = v_nuevo
+#        l_prev = l_nuevo
+#
+#    print(f"El método no convergió después de {max_iter} iteraciones.")
+#    return v, l_nuevo, max_iter
+#
+#def diagRH(A, tol = 1e-15, K = 1000):
+#
+#    n = A.shape[0]
+#    (autovector,autovalor,eps) = metpot2k(A,tol,K)
+#    I = np.eye(A.shape[0])
+#    e_i = np.zeros_like(autovector)
+#    e_i[0] = 1
+#
+#    u = (e_i - autovector).reshape(-1,1)
+#    u_t = u.T
+#    u_norma = norma(u,2)
+#    H_v = I - 2*((matMul(u,u_t))/(u_norma**2))
+#
+#    if n == 2:
+#        S = H_v
+#        D = matMul(H_v,matMul(A,transpuesta(H_v)))
+#
+#    else:
+#
+#        B = matMul(H_v,matMul(A,transpuesta(H_v)))
+#        A_nuevo = B[1:,1:]
+#
+#        (S_nuevo, D_nuevo) = diagRH(A_nuevo,tol,K)
+#
+#        D = np.zeros(B.shape)
+#        D[0][0] = autovalor
+#        D[1:,1:] = D_nuevo
+#
+#        S_extra = np.zeros(B.shape)
+#        S_extra[0][0] = 1
+#        S_extra[1:,1:] = S_nuevo
+#
+#        S = matMul(H_v,S_extra)
+#
+#
+#    return (S,D)
 
 def transiciones_al_azar_continuas(n):
     """
@@ -689,19 +862,31 @@ def svd_reducida(A, k="max", tol=1e-15):
     Retorna hatU (matriz de m x k), hatSig (matriz diagonal de k x k) y hatV (matriz de n x k)
     """
     m, n = A.shape
-
+    print("Dimension de A:,", A.shape)
+    print(f"{m} filas y {n} columnas.")
+    
     if m < n:
+        print("Caso m<n")
+        print("Calculando A*AT...")
+        mult_mat_start_time = time.perf_counter()
         B = matMul(A, transpuesta(A))
+        mult_mat_end_time = time.perf_counter()
+        mult_mat_time = mult_mat_end_time - mult_mat_start_time
+        print(f"A*AT calculada en {mult_mat_time:.4f} segundos")
+        diag_start = time.perf_counter()
+        print("Calculando DiagRH de A*AT para obtener diagonalización")
         diagonalizacion = diagRH(B, tol,1000)
+        diag_end = time.perf_counter()
+        print(f"Diagonalizacion calculada en {(diag_end - diag_start):.4f} segundos")
         U = diagonalizacion[0]
         D = diagonalizacion[1]
-
         autovalores_orig = np.diag(D)
         indices_ordenados = np.argsort(autovalores_orig)[::-1]
         autovalores_ordenados = autovalores_orig[indices_ordenados]
         U_ordenado = U[:, indices_ordenados]
 
         autovalores_filtrados = autovalores_ordenados[autovalores_ordenados >= tol]
+        print("Calculando valores singulares")
         valores_singulares = np.sqrt(autovalores_filtrados)
         r = len(valores_singulares)
 
@@ -714,6 +899,7 @@ def svd_reducida(A, k="max", tol=1e-15):
         hatU = U_ordenado[:, :k_eff]
 
         hatV = np.zeros((A.shape[1], k_eff))
+        print("Calculando B_v...")
         B_v = matMul(transpuesta(A), hatU)
 
         for i in range(k_eff):
