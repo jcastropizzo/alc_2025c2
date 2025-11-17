@@ -522,36 +522,6 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
 
 
 def metpot2k(A, tol=1e-15, max_iter=1000):
-    n = A.shape[0]
-    v = np.random.rand(n, 1)
-    v = v / norma(v, 2)
-    l_prev = 0.0
-    max_iter = int(max_iter)
-    A_cuadrado = matMul(A, A)
-
-    for k in range(max_iter):
-        w = matMul(A_cuadrado, v)
-
-        norma_w = norma(w, 2)
-        if norma_w < tol:
-            return v, 0.0, k
-
-        v_nuevo = w / norma_w
-
-        Av_nuevo = matMul(A, v_nuevo)
-        l_nuevo = matMul(transpuesta(v_nuevo), Av_nuevo)[0, 0]
-
-        if np.abs(l_nuevo - l_prev) < tol:
-            return v_nuevo, l_nuevo, k
-
-        v = v_nuevo
-        l_prev = l_nuevo
-
-    print(f"El método no convergió después de {max_iter} iteraciones.")
-    return v, l_nuevo, max_iter
-
-
-def metpot2k_old(A, tol=1e-15, max_iter=1000):
     """
     Calcula el autovalor dominante (de mayor magnitud) y su autovector
     correspondiente usando el método de la potencia cuadrado (iterando con A^2).
