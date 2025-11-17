@@ -14,6 +14,12 @@ import sys
 import os
 import time   
 
+def debugPrint(*args, **kwargs):
+    """Imprime mensajes de debug solo si la variable de entorno DEBUG está configurada."""
+    if os.getenv('DEBUG'):
+        print(*args, **kwargs)
+
+
 def esCuadrada(A):
   return A.shape[0] == A.shape[1]
 
@@ -48,10 +54,12 @@ def traza(A):
   return traza
 
 def transpuesta(A):
+  debugPrint(f"[DEBUG] transpuesta: Calculando transpuesta de matriz con forma {A.shape}")
   T = np.zeros((A.shape[1],A.shape[0]))
   for i in range(0,T.shape[0]):
     for j in range(0, T.shape[1]):
       T[i,j] = A[j,i]
+  debugPrint(f"[DEBUG] transpuesta: Forma del resultado {T.shape}")
   return T
 
 def esSimetrica(A):
@@ -141,11 +149,13 @@ def filasIguales(A, B, tol = np.finfo(np.double).eps * 2):
   return True
 
 def matMul(A,B):
+  debugPrint(f"[DEBUG] matMul: Multiplicando matrices A{A.shape} x B{B.shape}")
   if(len(A[0]) != len(B)):
     raise Exception("Matrices dimensions don't match for multiplication")
   res = np.zeros((A.shape[0],B.shape[1]))
   for i in range(0,res.shape[1]):
     res[:,i] = calcularAxFast(A,B[:,i])
+  debugPrint(f"[DEBUG] matMul: Forma del resultado {res.shape}")
   return res
 
 def matMulSlow(A,B):
@@ -244,34 +254,42 @@ def condExacto(A,p):
   return norma_A*norma_A_Inv
 
 def calculaLU(A):
+    debugPrint(f"[DEBUG] calculaLU: Iniciando descomposición LU para matriz de forma {A.shape}")
     cant_op = 0
-    m=A.shape[0]
-    n=A.shape[1]
+    m = A.shape[0]
+    n = A.shape[1]
     Ac = A.copy()
-    if m!=n:
-        print('Matriz no cuadrada')
+    if m != n:
+        print("Matriz no cuadrada")
         return None
 
+    debugPrint(f"[DEBUG] calculaLU: Realizando eliminación gaussiana en matriz {m}x{n}")
     for i in range(m):
-        for j in range(i+1,m):
-            if(Ac[i,i] == 0):
-              return None, None, 0
-            pivot = Ac[j,i]/Ac[i,i]
-            for k in range(i,n):
-                Ac[j,k] = Ac[j,k]-pivot*Ac[i,k]
+        if i % 100 == 0:
+            debugPrint(f"[DEBUG] calculaLU: Procesando fila {i}/{m}")
+        for j in range(i + 1, m):
+            if Ac[i, i] == 0:
+                return None, None, 0
+            pivot = Ac[j, i] / Ac[i, i]
+            for k in range(i, n):
+                Ac[j, k] = Ac[j, k] - pivot * Ac[i, k]
                 cant_op = cant_op + 2
-            Ac[j,i] = pivot
+            Ac[j, i] = pivot
 
-    U = np.zeros((m,n))
+    debugPrint(f"[DEBUG] calculaLU: Extrayendo matrices L y U")
+    U = np.zeros((m, n))
     L = np.eye(m)
     zerorow = np.zeros(U.shape[1])
     for i in range(m):
         for j in range(n):
-            if(i<=j):
-                U[i,j] = Ac[i,j]
-            if(i>j):
-                L[i,j] = Ac[i,j]
-        if(filasIguales(zerorow,U[i,:])): return None, None, 0
+            if i <= j:
+                U[i, j] = Ac[i, j]
+            if i > j:
+                L[i, j] = Ac[i, j]
+        if filasIguales(zerorow, U[i, :]):
+            return None, None, 0
+    
+    debugPrint(f"[DEBUG] calculaLU: Completado. Cantidad de operaciones: {cant_op}")
     return L, U, cant_op
 
 def res_tri(L,b,inferior=True):
@@ -295,18 +313,37 @@ def res_tri(L,b,inferior=True):
       res[i]=(b[i]-sum)/L[i,i]
   return res
 
-def inversa(A):
-  L,U,_ = calculaLU(A)
-  if (L is None and U is None): return None
-  I = np.eye(L.shape[0])
 
-  x = np.zeros_like(L)
-  for i in range(x.shape[0]):
-    x[:,i] = res_tri(L,I[:,i])
-  res = np.zeros_like(A)
-  for i in range(res.shape[1]):
-    res[:,i] = res_tri(U,x[:,i],inferior=False)
-  return res
+def inversa(A):
+    debugPrint(f"[DEBUG] inversa: Calculando inversa de matriz con forma {A.shape}")
+    
+    debugPrint(f"[DEBUG] inversa: Paso 1 - Calculando descomposición LU")
+    L, U, _ = calculaLU(A)
+    
+    if L is None and U is None:
+        debugPrint(f"[DEBUG] inversa: Descomposición LU falló, retornando None")
+        return None
+    
+    debugPrint(f"[DEBUG] inversa: Paso 2 - Creando matriz identidad")
+    I = np.eye(L.shape[0])
+
+    x = np.zeros_like(L)
+    debugPrint(f"[DEBUG] inversa: Paso 3 - Resolviendo {x.shape[0]} sistemas triangulares inferiores (Lx=I)")
+    for i in range(x.shape[0]):
+        if i % 100 == 0:
+            debugPrint(f"[DEBUG] inversa: Progreso sistemas triangulares inferiores: {i}/{x.shape[0]}")
+        x[:, i] = res_tri(L, I[:, i])
+    
+    res = np.zeros_like(A)
+    debugPrint(f"[DEBUG] inversa: Paso 4 - Resolviendo {res.shape[1]} sistemas triangulares superiores (Ures=x)")
+    for i in range(res.shape[1]):
+        if i % 100 == 0:
+            debugPrint(f"[DEBUG] inversa: Progreso sistemas triangulares superiores: {i}/{res.shape[1]}")
+        res[:, i] = res_tri(U, x[:, i], inferior=False)
+    
+    debugPrint(f"[DEBUG] inversa: Completado. Forma del resultado {res.shape}")
+    return res
+
 
 def calculaLDV(A):
   L, U, nops1 = calculaLU(A)
@@ -335,14 +372,18 @@ def obtener_householder(A):
     list: Lista de matrices de Householder H_1, H_2, ..., H_k
           donde k = min(m, n)
     """
+    debugPrint(f"[DEBUG] obtener_householder: Iniciando para matriz de forma {A.shape}")
     m, n = A.shape
     A_trabajo = A.copy().astype(float)
     matrices_householder = []
 
     # Iteramos sobre cada columna (hasta min(m, n))
     k = min(m, n)
+    debugPrint(f"[DEBUG] obtener_householder: Se calcularán {k} matrices de Householder")
 
     for j in range(k):
+        if j % 100 == 0:
+            debugPrint(f"[DEBUG] obtener_householder: Procesando columna {j}/{k}")
         # Extraemos la subcolumna desde la fila j hasta el final
         x = A_trabajo[j:, j].copy().flatten()
         dim_sub = len(x)
@@ -386,6 +427,7 @@ def obtener_householder(A):
         # Aplicamos la transformación a la matriz de trabajo
         A_trabajo = np.dot(H_j, A_trabajo)
 
+    debugPrint(f"[DEBUG] obtener_householder: Completado, generadas {len(matrices_householder)} matrices")
     return matrices_householder
 
 
@@ -397,50 +439,87 @@ def QR_con_HH(A):
     A (np.array): La matriz de entrada (m x n).
 
     Devuelve:
-    (Q, R): tupla con las matrices Q (ortogonal, m x m) y R (triangular superior, m x n)
-            tal que A = Q * R
+    Para matrices no cuadradas:
+      A (m x n)
+      si m >= n: devuelve Q (m x n) con columnas ortonormales, R (n x n) triangular superior
+      si m < n: devuelve Q (m x m) ortogonal, R (m x n) triangular superior
+    tal que A = Q * R
     """
+    debugPrint(f"[DEBUG] QR_con_HH: Iniciando descomposición QR con Householder para matriz de forma {A.shape}")
     m, n = A.shape
-
-    # Obtener todas las matrices de Householder
+    
+    debugPrint(f"[DEBUG] QR_con_HH: Calculando matrices de Householder")
     matrices_H = obtener_householder(A)
-
-    # Calcular R = H_k ... H_2 H_1 A
+    
+    debugPrint(f"[DEBUG] QR_con_HH: Obtenidas {len(matrices_H)} matrices de Householder")
+    debugPrint(f"[DEBUG] QR_con_HH: Calculando matriz R")
     R = A.copy().astype(float)
     for H in matrices_H:
         R = np.dot(H, R)
 
-    # Calcular Q = H_1^T H_2^T ... H_k^T
-    # Como las matrices de Householder son simétricas (H = H^T),
-    # Q = H_1 H_2 ... H_k
+    debugPrint(f"[DEBUG] QR_con_HH: Calculando matriz Q")
     Q = np.eye(m)
     for H in matrices_H:
-        Q = np.dot(Q, H.T)
+        Q = np.dot(Q, H)
 
+    if m >= n:
+        Q = Q[:, :n]
+        R = R[:n, :]
+
+    debugPrint(f"[DEBUG] QR_con_HH: Completado. Forma Q: {Q.shape}, Forma R: {R.shape}")
     return Q, R
 
-def QR_con_GS(A, tol=1e-12,retorna_nops=False):
+
+def QR_con_GS(A, tol=1e-12, retorna_nops=False):
+    debugPrint(f"[DEBUG] QR_con_GS: Iniciando descomposición QR con Gram-Schmidt para matriz de forma {A.shape}")
     nops = 0
-    Q = np.zeros(A.shape)
-    R = np.zeros(A.shape)
+    m, n = A.shape
 
-    R[0,0] = norma(A[:,0],2)
-    Q[:,0] = A[:,0] / R[0,0]
+    # Para matriz tall (m > n): Q es (m × n), R es (n × n)
+    # Para matriz wide (m < n): Q es (m × m), R es (m × n)
+    # Para matriz cuadrada (m = n): Q es (m × m), R es (m × n)
 
-    for j in range(1,A.shape[0]):
-      Q[:,j] = A[:,j]
-      for k in range(0, j):
-        R[k,j] = np.dot(Q[:,k],Q[:,j])
-        Q[:,j] = Q[:,j] - R[k,j]*Q[:,k]
-        nops = nops + 4*A.shape[0]
-      R[j,j] = norma(Q[:,j],2)
-      Q[:,j] = Q[:,j]/R[j,j]
-      nops = nops + A.shape[0]
-
-    if(retorna_nops):
-      return Q,R,nops
+    if m >= n:
+        # Caso tall o cuadrada: Q (m × n) con columnas ortonormales, R (n × n)
+        Q = np.zeros((m, n))
+        R = np.zeros((n, n))
+        max_cols = n
+        debugPrint(f"[DEBUG] QR_con_GS: Caso matriz tall/cuadrada. Q será ({m}, {n}), R será ({n}, {n})")
     else:
-      return Q,R
+        # Caso wide: Q (m × m) ortogonal, R (m × n)
+        Q = np.zeros((m, m))
+        R = np.zeros((m, n))
+        max_cols = m
+        debugPrint(f"[DEBUG] QR_con_GS: Caso matriz wide. Q será ({m}, {m}), R será ({m}, {n})")
+
+    debugPrint(f"[DEBUG] QR_con_GS: Calculando base ortonormal")
+    R[0, 0] = norma(A[:, 0], 2)
+    Q[:, 0] = A[:, 0] / R[0, 0]
+
+    for j in range(1, max_cols):
+        Q[:, j] = A[:, j]
+        for k in range(0, j):
+            R[k, j] = np.dot(Q[:, k], Q[:, j])
+            Q[:, j] = Q[:, j] - R[k, j] * Q[:, k]
+            nops = nops + 4 * m
+        R[j, j] = norma(Q[:, j], 2)
+        Q[:, j] = Q[:, j] / R[j, j]
+        nops = nops + m
+
+    # Para matriz wide, calcular columnas restantes de R
+    if m < n:
+        debugPrint(f"[DEBUG] QR_con_GS: Calculando columnas restantes de R para matriz wide")
+        for j in range(max_cols, n):
+            for i in range(max_cols):
+                R[i, j] = np.dot(Q[:, i], A[:, j])
+                nops = nops + 2 * m
+
+    debugPrint(f"[DEBUG] QR_con_GS: Completado. Forma Q: {Q.shape}, Forma R: {R.shape}")
+    if retorna_nops:
+        return Q, R, nops
+    else:
+        return Q, R
+
 
 def metpot2k(A, tol=1e-15, max_iter=1000):
     """
