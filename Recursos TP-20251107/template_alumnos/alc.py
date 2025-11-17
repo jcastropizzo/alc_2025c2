@@ -346,12 +346,11 @@ def inversa(A):
 
 
 def calculaLDV(A):
-    L, U, nops1 = calculaLU(A)
-    if U is None:
-        return None, None, None, None
-    V_T, D, nops2 = calculaLU(transpuesta(U))
-    V = transpuesta(V_T)
-    return L, D, V, nops1 + nops2
+  L, U, nops1 = calculaLU(A)
+  if(U is None): return None,None,None,None
+  V_T, D, nops2 = calculaLU(transpuesta(U))
+  V = transpuesta(V_T)
+  return L, D, V, nops1 + nops2
 
 def esSDP(A,atol=1e-10):
   L,D,V,_=calculaLDV(A)
