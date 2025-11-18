@@ -47,6 +47,16 @@ def diagonal(A):
         D[i,j] = 0
   return D
 
+def rango_R(A):
+  res = 0
+  for i in range(0, A.shape[0]):
+    if i < A.shape[1]:
+      if A[i,i] != 0:
+        res += 1
+      else:
+        res -= 1
+  return res
+
 def traza(A):
   traza = 0
   for i in range(0,A.shape[0]):

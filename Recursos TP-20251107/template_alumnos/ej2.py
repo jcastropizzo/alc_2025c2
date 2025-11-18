@@ -2,13 +2,12 @@ import numpy
 from dataset import cargarDataset
 from pathlib import Path
 from alc import *
-from ej6 import *
 
 data_path = Path("./dataset/cats_and_dogs")
 X_train, Y_train, X_val, Y_val = cargarDataset(data_path)
 
-X_train = X_train[:,850:1150]
-Y_train = Y_train[850:1150,:]
+#X_train = numpy.concatenate((X_train[:,850:1150],X_train[:,850:1150]),axis=1)
+#Y_train = numpy.concatenate((Y_train[850:1150,:],Y_train[850:1150,:]),axis=0)
 
 # Transpose Y to match expected dimensions: (classes x samples) instead of (samples x classes)
 Y_train = transpuesta(Y_train)
@@ -70,29 +69,36 @@ def caso2(X, Y, transpose, solve, cholesky, matmul):
     W = matmul(Y, V)
     return W
 
+# Despejar W de WX = Y
+# W = Y * X+
+def caso3(X, Y, transpose, solve, cholesky, matmul):
+    W = matmul(Y, inversa(X))
+    return W
+
+"""
+Dada X(n x p) ∈ R
+     Y(m x p) ∈ R
+1: a- Si rango(X) = p n > p
+2: b- Si rango(X) = n n < p
+3: c- Si rango(X) = n y n = p
+4: Calcular W = Y X+
+"""
+
 def connected_con_cholesky(X, Y):
-    print(svd_reducida(X))
-    W1 = caso1(X, Y, transpose, solve, cholesky, matMul)
-    matriz_confusion(W1, X_train, transpose(Y_train))
-    matriz_confusion(W1, X_val, transpose(Y_val))
-    W2 = caso2(X, Y, transpose, solve, cholesky, matMul)
-    matriz_confusion(W2, X_val, transpose(Y_val))
-    matriz_confusion(W2, X_train, transpose(Y_train))
-    return "W1", W2
+    Q,R = QR_con_GS(X)
+    rank = rango_R(R)
+    n = X.shape[0]
+    p = X.shape[1]
 
-import cProfile
-import pstats
-from io import StringIO
+    print("Rango de X:", rank)
 
-# Profile connected_con_cholesky(X_train, Y_train)
-profiler = cProfile.Profile()
-profiler.enable()
+    if rank == p and n > p:
+        W = caso1(X, Y, transpose, solve, cholesky, matMul)
+    elif rank == n and n < p:
+        W = caso2(X, Y, transpose, solve, cholesky, matMul)
+    elif rank == n and n == p:
+        W = caso3(X, Y, transpose, solve, cholesky, matMul)
+    else:
+        raise ValueError("Rango de X no compatible con Y")
+    return W
 
-W1, W2 = connected_con_cholesky(X_train, Y_train)
-
-profiler.disable()
-stats = pstats.Stats(profiler, stream=StringIO())
-stats.strip_dirs()
-stats.sort_stats('cumulative')
-stats.print_stats(20)
-print(stats.stream.getvalue())
