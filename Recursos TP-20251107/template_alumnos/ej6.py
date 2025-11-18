@@ -2,7 +2,7 @@ from alc import *
 import numpy as np
 from dataset import cargarDataset
 from pathlib import Path
-#from ej2 import pinvEcuacionesNormales
+from ej2 import pinvEcuacionesNormales
 from ej3 import pinvSVD
 from ej4 import pinvHouseHolder, pinvGramSchmidt
 from ej5 import esPseudoInversa
@@ -61,6 +61,15 @@ def validate_transferlearning(W, X_val, Y_val):
 def benchmark():
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
 
+    #Cholesky
+    start_time = time.perf_counter()
+    W = pinvEcuacionesNormales(X_train, Y_train)
+    end_time = time.perf_counter()
+    Cholesky_time = end_time - start_time
+    print(f"Cholesky exercise executed in: {Cholesky_time:.4f} seconds")
+    Cholesky_accuracy = validate_transferlearning(W,X_val,Y_val)
+    matriz_confusion(W, X_val, Y_val)
+
     #SVD
     start_time = time.perf_counter()
     U, srow, V = np.linalg.svd(X_train)
@@ -88,5 +97,7 @@ def benchmark():
     print(f"SVD  | {SVD_time:^15} | {SVD_accuracy:^17} |")
     print(" " * 17 + "-" * 37)
     print(f"GS | {GS_time:^15} | {GS_accuracy:^17} |")
+    print(" " * 17 + "-" * 37)
+    print(f"CHL | {Cholesky_time:^15} | {Cholesky_accuracy:^17} |")
     print(" " * 17 + "-" * 37)
     print("\n")

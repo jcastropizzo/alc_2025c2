@@ -102,3 +102,4 @@ def connected_con_cholesky(X, Y):
         raise ValueError("Rango de X no compatible con Y")
     return W
 
+pinvEcuacionesNormales = connected_con_cholesky
