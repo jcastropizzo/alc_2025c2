@@ -177,7 +177,6 @@ def alc_imp_hh():
     # matriz_confusion(W, X_val, Y_val)
     return 1
 
-
-alc_imp_gs()
-
-alc_imp_hh()
+if '__name__' == '__main__':
+    alc_imp_gs()
+    alc_imp_hh()

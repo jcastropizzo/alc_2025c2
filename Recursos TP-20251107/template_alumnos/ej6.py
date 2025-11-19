@@ -59,22 +59,24 @@ def validate_transferlearning(W, X_val, Y_val):
 
 
 def benchmark():
+    print("inside benchmark")
     X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
 
     #Cholesky
+    print("running cholesky...")
     start_time = time.perf_counter()
     W = pinvEcuacionesNormales(X_train, Y_train)
     end_time = time.perf_counter()
     Cholesky_time = end_time - start_time
     print(f"Cholesky exercise executed in: {Cholesky_time:.4f} seconds")
     Cholesky_accuracy = validate_transferlearning(W,X_val,Y_val)
-    matriz_confusion(W, X_val, Y_val)
+    #matriz_confusion(W, X_val, Y_val)
 
     #SVD
+    print("running svd...")
     start_time = time.perf_counter()
-    U, srow, V = np.linalg.svd(X_train)
-    S = np.diag(srow)
-    W_SVD = pinvSVD(U, S, V, Y_train,'np')
+    U, S, V = svd_reducida(X_train)
+    W_SVD = pinvSVD(U, S, V, Y_train)
     end_time = time.perf_counter()
     SVD_time = end_time - start_time
     print(f"SVD exercise executed in: {SVD_time:.4f} seconds")
@@ -82,6 +84,7 @@ def benchmark():
     matriz_confusion(W_SVD, X_val, Y_val)
 
     #QR
+    print("running qr gs...")
     start_time = time.perf_counter()
     Q, R = QR_con_GS(X_train)
     W_GS =  pinvGramSchmidt(Q, R, Y_train)
@@ -101,3 +104,5 @@ def benchmark():
     print(f"CHL | {Cholesky_time:^15} | {Cholesky_accuracy:^17} |")
     print(" " * 17 + "-" * 37)
     print("\n")
+
+benchmark()
