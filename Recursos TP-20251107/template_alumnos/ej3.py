@@ -2,7 +2,6 @@ from dataset import cargarDataset
 from pathlib import Path
 from alc import *
 import numpy as np
-from ej6 import validate_transferlearning, matriz_confusion
 import time
 
 main_time_start = time.perf_counter()
@@ -30,14 +29,3 @@ def pinvSVD(U, S, V, Y):
     elapsed = main_time_end - main_time_start
     print(f"Elapsed time: {elapsed:.4f} sec")
     return W
-
-print("Cagando dataset...")
-X_train, Y_train, X_val, Y_val = cargarDataset(Path("./dataset/cats_and_dogs"))
-print("Dataset cargado")
-print("Calculando svd_reducida...")
-U, S, V = svd_reducida(X_train)
-print("SVD calculado")
-print("Entrando en pinvSVD...")
-W = pinvSVD(U, S, V, Y_train)
-validate_transferlearning(W,X_val,Y_val)
-matriz_confusion(W, X_val, Y_val)
