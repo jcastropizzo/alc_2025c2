@@ -104,5 +104,3 @@ def benchmark():
     print(f"CHL | {Cholesky_time:^15} | {Cholesky_accuracy:^17} |")
     print(" " * 17 + "-" * 37)
     print("\n")
-
-benchmark()
