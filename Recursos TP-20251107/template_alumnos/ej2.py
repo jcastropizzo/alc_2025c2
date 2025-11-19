@@ -10,7 +10,6 @@ if '__name__' == '__main__':
     #X_train = numpy.concatenate((X_train[:,850:1150],X_train[:,850:1150]),axis=1)
     #Y_train = numpy.concatenate((Y_train[850:1150,:],Y_train[850:1150,:]),axis=0)
 
-    # Transpose Y to match expected dimensions: (classes x samples) instead of (samples x classes)
     Y_train = transpuesta(Y_train)
     Y_val = transpuesta(Y_val)
 
