@@ -8,6 +8,7 @@ Original file is located at
 """
 
 import numpy as np
+from pathlib import Path
 import math #para sqrt en labo8
 import ctypes
 import sys
@@ -1001,3 +1002,264 @@ except Exception as e:
   print(f"Error loading or configuring C extension: {e}")
   print("USING SLOW CODE")
   # calcularAxFast is already set to calcularAx from the start
+
+
+
+
+
+######################################################## EJERCICIOS TP ########################################################
+#############################################################################################################################
+
+
+### EJERCICIO 1
+
+CLASSES = ["cats", "dogs"]
+EMBEDDING_NAME = "efficientnet_b3_embeddings.npy"
+
+Datos = tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+
+def cargarDataset(file: Path) -> Datos:
+    val_path = file / "val"
+    train_path = file / "train"
+    train_paths = [train_path / cls / EMBEDDING_NAME for cls in CLASSES]
+    val_paths = [val_path / cls / EMBEDDING_NAME for cls in CLASSES]
+
+    training_data = np.concatenate([np.load(path) for path in train_paths], axis=1)
+    training_labels = np.array([[1, 0]] * (training_data.shape[1] // 2))
+    training_labels = np.concatenate(
+        [training_labels, np.array([[0, 1]] * (training_data.shape[1] // 2))], axis=0
+    )
+
+    validation_data = np.concatenate([np.load(path) for path in val_paths], axis=1)
+    validation_labels = np.array([[1, 0]] * (validation_data.shape[1] // 2))
+    validation_labels = np.concatenate(
+        [validation_labels, np.array([[0, 1]] * (validation_data.shape[1] // 2))],
+        axis=0,
+    )
+
+    return training_data, training_labels, validation_data, validation_labels
+
+### EJERCICIO 2
+
+
+"""
+Dada X(n x p) ∈ R
+     Y(m x p) ∈ R
+1: a- Si rango(X) = p n > p
+2: b- Si rango(X) = n n < p
+3: c- Si rango(X) = n y n = p
+4: Calcular W = Y X+
+"""
+
+def connected_con_cholesky(X, Y):
+  transpose = transpuesta
+  solve = np.linalg.solve
+  #mul = lambda A, B: A @ B
+  mul = matMul
+  
+  def caso1(X, Y, transpose, solve, cholesky, matmul):
+    X_T = transpose(X)
+    A = matmul(X_T, X)
+    L, Lt = cholesky(A)
+    # L * Lt * U = X_T
+    # L * B = X_T
+    B = solve(L, X_T)
+    # Lt * U = B
+    U = solve(Lt, B)
+    # W = Y * U
+    W = matmul(Y, U)
+    return W
+
+  # Caso 2
+  # A = X * X transpuesta
+  # Quiero resolver V * A = X transpuesta
+  # Que es lo mismo que hacer A transpuesta * V transpuesta = X
+  # despejar W de W = Y * V
+  def caso2(X, Y, transpose, solve, cholesky, matmul):
+    X_T = transpose(X)
+    A = matmul(X, X_T)
+    A_T = transpose(A)
+    L, Lt = cholesky(A_T)
+    B = solve(L, X)
+    V_T = solve(Lt, B)
+    V = transpose(V_T)
+    W = matmul(Y, V)
+    return W
+
+  # Despejar W de WX = Y
+  # W = Y * X+
+  def caso3(X, Y, transpose, solve, cholesky, matmul):
+    W = matmul(Y, inversa(X))
+    return W
+    
+  Q,R = QR_con_GS(X)
+  rank = rango_R(R)
+  n = X.shape[0]
+  p = X.shape[1]
+
+  print("Rango de X:", rank)
+
+  if rank == p and n > p:
+      W = caso1(X, Y, transpose, solve, cholesky, matMul)
+  elif rank == n and n < p:
+      W = caso2(X, Y, transpose, solve, cholesky, matMul)
+  elif rank == n and n == p:
+      W = caso3(X, Y, transpose, solve, cholesky, matMul)
+  else:
+      raise ValueError("Rango de X no compatible con Y")
+  return W
+
+pinvEcuacionesNormales = connected_con_cholesky
+
+### EJERCICIO 3
+
+def inversa_diagonal(A):
+    # 1. Create a writeable copy of the array A
+    B = A.copy()
+    for i in range(B.shape[0]):
+        if B[i,i] != 0:
+            B[i,i] = 1/B[i,i]
+    return B
+
+def pinvSVD(U, S, V, Y):
+    n = U.shape[0]
+
+    Ut = transpuesta(U)
+    V1 = V[:,0:n]
+    St = inversa_diagonal(S)
+
+    W = matMul(matMul(matMul(transpuesta(Y),V1),St),Ut)
+        
+    return W
+  
+### EJERCICIO 4
+
+def _calcular_pesos_con_qr(Q: np.ndarray, R: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    """
+    Implementación del Algoritmo 3 para calcular la matriz de pesos W.
+
+    Args:
+        Q: Matriz con columnas ortonormales de la descomposición QR (n x n)
+        R: Matriz triangular superior de la descomposición QR (n x p)
+        Y: Matriz de targets de entrenamiento (n x k) donde n = n_classes y k = n_samples
+ 
+    Returns:
+        W: Matriz de pesos (n x k)
+
+    Algoritmo 3:
+        Para matriz X (n x p) con n < p:
+
+        Derivación de la fórmula simplificada:
+        1. Pseudoinversa para matriz X (n x p) con n < p:
+           X⁺ = X^T @ (X @ X^T)^{-1}
+
+        2. Usar la descomposición QR de X^T = Q @ R.
+           Entonces X^T = Q @ R
+           Por lo tanto, X = (Q @ R)^T = R^T @ Q^T
+
+        3. Calcular X @ X^T:
+           X @ X^T = (R^T @ Q^T) @ (Q @ R)
+                   = R^T @ (Q^T @ Q) @ R
+           Como Q tiene columnas ortonormales, Q^T @ Q = I,
+           así que X @ X^T = R^T @ R
+
+        4. Calcular la inversa:
+           (X @ X^T)^{-1} = (R^T @ R)^{-1}
+
+        5. Sustituir en la expresión de la pseudoinversa:
+           X⁺ = X^T @ (X @ X^T)^{-1}
+              = Q @ R @ (R^T @ R)^{-1}
+
+        6. Utilizar la propiedad de la inversa de un producto:
+           (R^T @ R)^{-1} = R^{-1} @ (R^T)^{-1}
+           Entonces:
+           X⁺ = Q @ R @ R^{-1} @ (R^T)^{-1}
+              = Q @ I @ (R^T)^{-1}
+              = Q @ (R^T)^{-1}
+
+        7. Por lo tanto, X⁺ = Q @ (R^T)^{-1}
+                   
+        8. Calcular pesos:
+           W = Y @ X⁺ = Y @ Q @ (R^T)^{-1}
+    """
+    # (Q: (p x n), R: (n x n), Y: (n x k), W: (p x k))
+
+    # (R^T)^{-1} = inversa(transpuesta(R))
+    R_T = transpuesta(R)
+    
+    R_T_inv = inversa(R_T)
+
+    # X⁺ = Q @ (R^T)^{-1}
+    X_plus = matMul(Q, R_T_inv)
+
+    # W = Y @ X⁺ (según línea 54 del desarrollo matemático)
+    W = matMul(Y, X_plus)
+    
+    return W
+
+
+# 4.1
+def pinvHouseHolder(Q: np.ndarray, R: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    return _calcular_pesos_con_qr(Q, R, Y)
+
+
+# 4.2
+def pinvGramSchmidt(Q: np.ndarray, R: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    return _calcular_pesos_con_qr(Q, R, Y)
+  
+### EJERCICIO 5
+TOL = 1e-8
+
+def esPseudoInversa(A, B, tol=TOL):
+    AB = matMul(A, B)
+    BA = matMul(B, A)
+    cond1 = matricesIguales(matMul(AB, A), A, tol=tol)
+    cond2 = matricesIguales(matMul(BA, B), B, tol=tol)
+    cond3 = matricesIguales(transpuesta(AB), AB, tol=tol)
+    cond4 = matricesIguales(transpuesta(BA), BA, tol=tol)
+    return cond1 and cond2 and cond3 and cond4
+  
+### EJERCICIO 6
+
+def matriz_confusion(W, X_val, Y_val):
+    conf_mat = np.array([[0,0],[0,0]])
+
+    samples = X_val.shape[1]
+    for i in range(samples):
+        y_true_vector = Y_val[i, :]
+        ei = W @ X_val[:, i]
+        predicted_class = np.argmax(ei)
+        true_class = np.argmax(y_true_vector)
+        conf_mat[true_class, predicted_class] += 1
+
+    verdaderos_gatos = conf_mat[0, 0]
+    falsos_perros = conf_mat[0, 1]  # Gatos Reales, predichos como Perros
+    falsos_gatos = conf_mat[1, 0]  # Perros Reales, predichos como Gatos
+    verdaderos_perros = conf_mat[1, 1]
+
+    print("\n" + "--- Matriz de Confusión (Validación) ---".center(45))
+    print(" " * 15 + "Predicción: GATO | Predicción: PERRO |")
+    print(" " * 17 + "-" * 37)
+
+    print(f"Realidad: GATO  | {verdaderos_gatos:^15} | {falsos_perros:^17} |")
+    print(" " * 17 + "-" * 37)
+    print(f"Realidad: PERRO | {falsos_gatos:^15} | {verdaderos_perros:^17} |")
+    print(" " * 17 + "-" * 37)
+    print("\n")
+
+def validate_transferlearning(W, X_val, Y_val):
+    predicciones_correctas = 0
+    samples = X_val.shape[1]
+    for i in range(samples):
+        y_true_vector = Y_val[i, :]
+        ei = W @ X_val[:, i]
+        predicted_class = np.argmax(ei)
+        true_class = np.argmax(y_true_vector)
+        if predicted_class == true_class:
+            predicciones_correctas += 1
+
+    accuracy = (predicciones_correctas / samples) * 100
+    print(f"\n--- Resultados de Validación ---")
+    print(f"Precisión (Accuracy): {accuracy:.2f}%")
+    print(f"Clasificó correctamente {predicciones_correctas} de {samples} muestras.")
+    return accuracy
