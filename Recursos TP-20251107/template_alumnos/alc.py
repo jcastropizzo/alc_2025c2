@@ -1134,6 +1134,25 @@ def pinvSVD(U, S, V, Y):
   
 ### EJERCICIO 4
 
+def res_tri_mat(L, B, inferior=True):
+    """
+    Resuelve sistemas triangulares donde el término independiente B es una matriz.
+
+    Args:
+        L: matriz triangular (m x m)
+        B: matriz (m x k) (cada columna es un lado derecho)
+        inferior: True si L es triangular inferior, False si superior.
+
+    Returns:
+        X: matriz (m x k) tal que L X = B
+    """
+    m, k = B.shape
+    X = np.zeros_like(B)
+    for j in range(k):
+        X[:, j] = res_tri(L, B[:, j], inferior=inferior)
+    return X
+
+
 def _calcular_pesos_con_qr(Q: np.ndarray, R: np.ndarray, Y: np.ndarray) -> np.ndarray:
     """
     Implementación del Algoritmo 3 para calcular la matriz de pesos W.
@@ -1176,26 +1195,19 @@ def _calcular_pesos_con_qr(Q: np.ndarray, R: np.ndarray, Y: np.ndarray) -> np.nd
            X⁺ = Q @ R @ R^{-1} @ (R^T)^{-1}
               = Q @ I @ (R^T)^{-1}
               = Q @ (R^T)^{-1}
-
-        7. Por lo tanto, X⁺ = Q @ (R^T)^{-1}
+           X⁺ @ (R^T) = Q
                    
-        8. Calcular pesos:
-           W = Y @ X⁺ = Y @ Q @ (R^T)^{-1}
+        9. Calcular pesos:
+           W = Y @ X⁺
+           W @ (R^T) = Y @ X⁺ @ (R^T)
+           W @ (R^T) = Y @ Q
+           (W @ R^T)^T = (Y @ Q)^T
+           R @ W^T = (Y @ Q)^T
     """
-    # (Q: (p x n), R: (n x n), Y: (n x k), W: (p x k))
-
-    # (R^T)^{-1} = inversa(transpuesta(R))
-    R_T = transpuesta(R)
+    Y_Q_T = transpuesta(matMul(Y, Q))
     
-    R_T_inv = inversa(R_T)
-
-    # X⁺ = Q @ (R^T)^{-1}
-    X_plus = matMul(Q, R_T_inv)
-
-    # W = Y @ X⁺ (según línea 54 del desarrollo matemático)
-    W = matMul(Y, X_plus)
-    
-    return W
+    W_T = res_tri_mat(R, Y_Q_T, inferior=False)
+    return transpuesta(W_T)
 
 
 # 4.1
