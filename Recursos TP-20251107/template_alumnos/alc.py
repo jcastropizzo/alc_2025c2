@@ -1037,6 +1037,8 @@ def connected_con_cholesky(X, L, Y):
   def caso1(X, Y, transpose, solve, cholesky, matmul):
     X_T = transpose(X)
     A = matmul(X_T, X)
+    if not esSDP(A):
+      raise ValueError("Matriz no es SDP")
     L, Lt = cholesky(A)
     # L * Lt * U = X_T
     # L * B = X_T
@@ -1056,6 +1058,8 @@ def connected_con_cholesky(X, L, Y):
     X_T = transpose(X)
     A = matmul(X, X_T)
     A_T = transpose(A)
+    if not esSDP(A_T):
+       raise ValueError("Matriz no es SDP")
     L, Lt = cholesky(A_T)
     B = res_tri_mat(L, X, True)
     V_T = res_tri_mat(Lt, B, False)
@@ -1065,8 +1069,21 @@ def connected_con_cholesky(X, L, Y):
 
   # Despejar W de WX = Y
   # W = Y * X+
+  # W X = Y 
+  # Xt * Wt = Yt
+  # X * Xt * Wt = X * Yt
   def caso3(X, Y, transpose, solve, cholesky, matmul):
-    W = matmul(Y, inversa(X))
+    # W = matmul(Y, inversa(X))
+    X_T = transpose(X)
+    A = matmul(X, X_T)
+    if not esSDP(A):
+       raise ValueError("Matriz no es SDP")
+    L, Lt = cholesky(A)
+    # Me queda L * Lt * W_T = X * Y_T
+    XY_T = matmul(X, transpose(Y))
+    B = res_tri_mat(L, XY_T, True)
+    W_T = res_tri_mat(Lt, B, False)
+    W = transpose(W_T)
     return W
     
   Q,R = QR_con_GS(X)
