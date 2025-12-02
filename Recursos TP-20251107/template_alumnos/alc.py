@@ -210,6 +210,12 @@ def norma(x,p):
     return np.max(np.abs(x))
   return np.sum(np.abs(x)**p)**(1/p)
 
+def normaliza(X, p):
+  y = np.zeros(X.shape[0])
+  for i in range(X.shape[0]):
+    y[i] = norma(X[i], p)
+  return y
+
 def normaExacta(A, p):
   if p == 1:
     return np.max(np.sum(np.abs(A), axis=0))
