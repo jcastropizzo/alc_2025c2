@@ -1028,7 +1028,7 @@ Dada X(n x p) ∈ R
 4: Calcular W = Y X+
 """
 
-def connected_con_cholesky(X, Y):
+def connected_con_cholesky(X, L, Y):
   transpose = transpuesta
   solve = np.linalg.solve
   #mul = lambda A, B: A @ B
@@ -1040,9 +1040,9 @@ def connected_con_cholesky(X, Y):
     L, Lt = cholesky(A)
     # L * Lt * U = X_T
     # L * B = X_T
-    B = solve(L, X_T)
+    B = res_tri_mat(L, X_T, True)
     # Lt * U = B
-    U = solve(Lt, B)
+    U = res_tri_mat(Lt, B, False)
     # W = Y * U
     W = matmul(Y, U)
     return W
@@ -1057,8 +1057,8 @@ def connected_con_cholesky(X, Y):
     A = matmul(X, X_T)
     A_T = transpose(A)
     L, Lt = cholesky(A_T)
-    B = solve(L, X)
-    V_T = solve(Lt, B)
+    B = res_tri_mat(L, X, True)
+    V_T = res_tri_mat(Lt, B, False)
     V = transpose(V_T)
     W = matmul(Y, V)
     return W
