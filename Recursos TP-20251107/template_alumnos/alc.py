@@ -899,79 +899,55 @@ def svd_reducida(A, k="max", tol=1e-15):
     return hatU, hatS, hatV
 
 try:
-    # 1. Determine the correct file extension based on the OS
     if sys.platform.startswith('darwin'):
-        # macOS uses .dylib or .so (but .dylib is more common for system)
         lib_ext = ".dylib"
     elif sys.platform.startswith('linux'):
-        # Linux uses .so
         lib_ext = ".so"
     else:
-        # Fallback for other systems (like Windows, where it would be .dll)
-        # We'll stick to the provided extensions for now
         raise OSError(f"Unsupported OS for C extension: {sys.platform}")
 
-    # 2. Construct the library path
     lib_name = "aux" + lib_ext
     
-    # Use os.path.join for cross-platform path construction
-    # Note: If your script is in a different location than 'aux.so', you'll need
-    # to provide a full or relative path here. We assume they are together.
     lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), lib_name)
 
-    # 3. Load the library
     aux = ctypes.CDLL(lib_path)
     print(f"Loaded {lib_name} ({sys.platform})")
 
-    # 4. Find the C function
-    # The author's original logic for checking the underscore prefix is kept, 
-    # as macOS C compilers sometimes mangle function names with a leading underscore.
     try:
-        # Try with underscore prefix (macOS convention)
         calcularAX_func = aux._calcularAX
-    except AttributeError:
-        # Try without underscore (Linux/standard convention)
+    except AttributeError:  
         calcularAX_func = aux.calcularAX
     try:
-        # Try with underscore prefix (macOS convention)
         matMul_func = aux._matMul
     except AttributeError:
-        # Try without underscore (Linux/standard convention)
         matMul_func = aux.matMul
       
     matMul_func.argtypes = [
       ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float),
       ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int, ctypes.c_int
     ]
-    # 5. Configure function types (remains the same as this is C-specific)
     calcularAX_func.argtypes = [
       ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float),
       ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int
     ]
 
-    # 6. Define the Python wrapper function
     def _calcularAxFast(A,x):
-      # Ensure inputs are float32 and contiguous for C compatibility
       A_f32 = np.ascontiguousarray(A, dtype=np.float32)
       x_f32 = np.ascontiguousarray(x, dtype=np.float32)
       
       n_rows = A_f32.shape[0]
       n_cols = A_f32.shape[1]
       
-      # Convert numpy data buffers to C pointers
       A_ctypes = A_f32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
       x_ctypes = x_f32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
       
-      # Prepare the result buffer
       res = np.zeros(n_rows, dtype=np.float32)
       res_ctypes = res.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-      # Call the C function
       calcularAX_func(A_ctypes, x_ctypes, res_ctypes, n_rows, n_cols)
       return res
     
     def matMulFast(A, B):
-      # Ensure inputs are float32 and contiguous for C compatibility
       A_f32 = np.ascontiguousarray(A, dtype=np.float32)
       B_f32 = np.ascontiguousarray(B, dtype=np.float32)
       
@@ -979,29 +955,24 @@ try:
       n_cols_A = A_f32.shape[1]
       n_cols_B = B_f32.shape[1]
       
-      # Convert numpy data buffers to C pointers
       A_ctypes = A_f32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
       B_ctypes = B_f32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
       
-      # Prepare the result buffer
       res = np.zeros((n_rows, n_cols_B), dtype=np.float32)
       res_ctypes = res.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-      # Call the C function
       matMul_func(A_ctypes, B_ctypes, res_ctypes, n_rows, n_cols_A, n_cols_B)
       return res
     
     matMul = matMulFast
     
-    # Set the public function to the fast C version
     calcularAxFast = _calcularAxFast
     print("USING FAST CODE")
 
-# 7. Error Handling: Fallback to slow code if C loading fails
 except Exception as e:
   print(f"Error loading or configuring C extension: {e}")
   print("USING SLOW CODE")
-  # calcularAxFast is already set to calcularAx from the start
+  calcularAxFast = calcularAx
 
 
 
