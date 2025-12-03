@@ -891,14 +891,14 @@ def svd_reducida(A, k="max", tol=1e-15):
         else:
             k_eff = min(int(k), r)
 
-        hatS = np.diag(valores_singulares[:k_eff])
+        hatS = valores_singulares[:k_eff]
         hatV = V_ordenado[:, :k_eff]
 
         hatU = np.zeros((A.shape[0], k_eff))
         B_u = matMul(A, hatV)
 
         for i in range(k_eff):
-            sigma_i = hatS[i, i]
+            sigma_i = hatS[i]
             if sigma_i >= tol:
                 hatU[:, i] = B_u[:, i] / sigma_i
 
@@ -1115,14 +1115,29 @@ def inversa_diagonal(A):
             B[i,i] = 1/B[i,i]
     return B
 
+def matMulDiagonal(A,d):
+    return A * d
+
 def pinvSVD(U, S, V, Y):
     n = U.shape[0]
 
+    print(f"V.shape: {V.shape}")
     Ut = transpuesta(U)
     V1 = V[:,0:n]
-    St = inversa_diagonal(S)
+    St = 1/S
 
-    W = matMul(matMul(matMul(transpuesta(Y),V1),St),Ut)
+    print(f"Ut.shape {Ut.shape}")
+    print(f"St.shape {St.shape}")
+    print(f"V1.shape {V1.shape}")
+    print(f"Y.shape {Y.shape}")
+
+    VS = matMulDiagonal(V1,St)
+    print(f"VS.shape {VS.shape}")
+    YVS = matMul(transpuesta(Y),VS)
+    print(f"YVS.shape {YVS.shape}")
+#    W = matMul(YVS,Ut)
+    
+    W = matMul(matMul(matMul(transpuesta(Y),V1),np.diag(St)),Ut)
         
     return W
   
