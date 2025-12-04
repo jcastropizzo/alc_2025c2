@@ -1,0 +1,27 @@
+	El costo computacional de calcular la pseudo-inversa con SVD está en realizar la factorización. 
+SVD implica encontrar todos los autovalores de la matriz, y la metodología utilizada en los labos 
+es la de utilizar reflexiones de HouseHolder y el método de la potencia. 
+La matriz AxAT es una matriz de 1536x1536. Esto implica que llamamos al método de la 
+potencia 1536 veces, donde en los primeros casos, las matrices son demasiado
+grandes para ser resueltas en menos de 1 segundo cada una. 
+
+Buscamos estrategias para mejorar la performance del algoritmo, como reimplementar
+la diagonalización por HouseHolder para no utilizar recursión, algo que
+se presentó como muy costoso en términos computacionales. 
+También buscamos implementar la multiplicación de matrices en C, pero el 
+problema no es sólamente la performance de la multiplicación de matrices sino
+también la cantidad de veces que llamamos a esta función. 
+
+También recurrimos a aprovechar información, como que la matriz de valores 
+singulares es diagonal, para invertirla sin utilizar el método del laboratorio
+correspondiente, ya que este último se basaba en LU, al saber que es diagonal,
+podemos reducir el costo computacional a O(n).
+
+Si bien logramos reducir la perfomance considerablemente (en nuestras primeras 
+corridas, SVD crasheaba a las 12hs por exceder el máximo permitido por 
+Python de pasos recursivos), el costo de cada corrida es de 1 hora.
+
+Teniendo en cuenta que la complejidad de calcular los autovalores es en 
+un mejor caso O(n^4), consideramos que este algorimo no escala para 
+modelos de mayor tamaño, y que hay implementaciones para calcular 
+tanto la pseudoinversa, como SVD, que tienen menor complejidad. 

@@ -652,8 +652,6 @@ def diagRH(A_original, tol=1e-15, K=1000):
         n_sub = A_sub.shape[0]
 
         # 2. Encontrar autovalor/autovector dominante del subproblema
-        if(i % 100 == 0):# Loop n veces
-            print(f"Calculando metpot {i}/{n} con dimension {A_sub.shape}...")
         (autovector_sub, autovalor, k) = metpot2k(A_sub, tol, K)
         D[i, i] = autovalor
 
@@ -831,17 +829,8 @@ def svd_reducida(A, k="max", tol=1e-15):
     m, n = A.shape
 
     if m < n:
-        print("Calculando A*AT...")
-        mult_mat_start_time = time.perf_counter()
         B = matMul(A, transpuesta(A))
-        mult_mat_end_time = time.perf_counter()
-        mult_mat_time = mult_mat_end_time - mult_mat_start_time
-        print(f"A*AT calculada en {mult_mat_time:.4f} segundos")
-        diag_start = time.perf_counter()
-        print("Calculando DiagRH de A*AT para obtener diagonalización")
         diagonalizacion = diagRH(B, tol,1000)
-        diag_end = time.perf_counter()
-        print(f"Diagonalizacion calculada en {(diag_end - diag_start)/60:.4f} minutos")
         U = diagonalizacion[0]
         D = diagonalizacion[1]
         autovalores_orig = np.diag(D)
@@ -850,7 +839,6 @@ def svd_reducida(A, k="max", tol=1e-15):
         U_ordenado = U[:, indices_ordenados]
 
         autovalores_filtrados = autovalores_ordenados[autovalores_ordenados >= tol]
-        print("Calculando valores singulares")
         valores_singulares = np.sqrt(autovalores_filtrados)
         r = len(valores_singulares)
 
@@ -863,7 +851,6 @@ def svd_reducida(A, k="max", tol=1e-15):
         hatU = U_ordenado[:, :k_eff]
 
         hatV = np.zeros((A.shape[1], k_eff))
-        print("Calculando B_v...")
         B_v = matMul(transpuesta(A), hatU)
 
         for i in range(k_eff):
