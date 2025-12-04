@@ -1123,7 +1123,8 @@ def pinvSVD(U, S, V, Y):
 
     print(f"V.shape: {V.shape}")
     Ut = transpuesta(U)
-    V1 = V[:,0:n]
+    V_t = V.T
+    V1 = V_t[:,0:n]
     St = 1/S
 
     print(f"Ut.shape {Ut.shape}")
