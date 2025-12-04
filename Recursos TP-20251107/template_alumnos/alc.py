@@ -81,7 +81,7 @@ def esSimetrica(A):
       if(A[i,j] != T[i,j]): return False
   return True
 
-# Uso lo que tengo en aux.c
+# Uso lo que tengo en matmul.c
 def calcularAxFast(A,x):
   pass
 
