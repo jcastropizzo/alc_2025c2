@@ -1136,9 +1136,9 @@ def pinvSVD(U, S, V, Y):
     print(f"VS.shape {VS.shape}")
     YVS = matMul(transpuesta(Y),VS)
     print(f"YVS.shape {YVS.shape}")
-#    W = matMul(YVS,Ut)
+    W = matMul(YVS,Ut)
     
-    W = matMul(matMul(matMul(transpuesta(Y),V1),np.diag(St)),Ut)
+    #W = matMul(matMul(matMul(transpuesta(Y),V1),np.diag(St)),Ut)
         
     return W
   
