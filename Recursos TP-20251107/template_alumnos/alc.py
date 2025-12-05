@@ -885,14 +885,14 @@ def svd_reducida(A, k="max", tol=1e-15):
         else:
             k_eff = min(int(k), r)
 
-        hatS = np.diag(valores_singulares[:k_eff])
+        hatS = valores_singulares[:k_eff]
         hatV = V_ordenado[:, :k_eff]
 
         hatU = np.zeros((A.shape[0], k_eff))
         B_u = matMul(A, hatV)
 
         for i in range(k_eff):
-            sigma_i = hatS[i, i]
+            sigma_i = hatS[i]
             if sigma_i >= tol:
                 hatU[:, i] = B_u[:, i] / sigma_i
 
@@ -1126,7 +1126,7 @@ def pinvSVD(U, S, V, Y):
 
     Ut = transpuesta(U)
     V1 = V[:,0:n]
-    St = inversa_diagonal(S)
+    St = inversa_diagonal(np.diag(S))
 
     W = matMul(matMul(matMul(transpuesta(Y),V1),St),Ut)
         
