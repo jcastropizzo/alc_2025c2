@@ -1135,10 +1135,10 @@ def pinvSVD(U, S, V, Y):
 
     Ut = transpuesta(U)
     V1 = V[:,0:n]
-    St = inversa_diagonal(S)
-
-    W = matMul(matMul(matMul(transpuesta(Y),V1),St),Ut)
-        
+    St = 1/S
+    VS = V1*St
+    VSU = matMul(VS,Ut)
+    W = matMul(transpuesta(Y),VSU)
     return W
   
 ### EJERCICIO 4
