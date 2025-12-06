@@ -853,7 +853,7 @@ def svd_reducida(A, k="max", tol=1e-15):
         else:
             k_eff = min(int(k), r)
 
-        hatS = np.diag(valores_singulares[:k_eff])
+        hatS = valores_singulares[:k_eff]
         hatU = U_ordenado[:, :k_eff]
 
         hatV = np.zeros((A.shape[1], k_eff))
@@ -861,7 +861,7 @@ def svd_reducida(A, k="max", tol=1e-15):
         B_v = matMul(transpuesta(A), hatU)
 
         for i in range(k_eff):
-            sigma_i = hatS[i, i]
+            sigma_i = hatS[i]
             if sigma_i >= tol:
                 hatV[:, i] = B_v[:, i] / sigma_i
 
@@ -1115,18 +1115,27 @@ pinvEcuacionesNormales = connected_con_cholesky
 
 def inversa_diagonal(A):
     # 1. Create a writeable copy of the array A
-    B = A.copy()
+    print(f"Inside inversa_diagonal.")
+    print(f"{A.shape=}")
+    B_tmp = A.copy()
+    B = np.diag(B_tmp)
+    print(f"{B.shape=}")
     for i in range(B.shape[0]):
         if B[i,i] != 0:
             B[i,i] = 1/B[i,i]
     return B
 
 def pinvSVD(U, S, V, Y):
+    print("Inside pinvSVD")
+    print(f"{U.shape=}")
+    print(f"{S.shape=}")
+    print(f"{V.shape=}")
+    print(f"{Y.shape=}")
     n = U.shape[0]
 
     Ut = transpuesta(U)
     V1 = V[:,0:n]
-    St = inversa_diagonal(np.diag(S))
+    St = inversa_diagonal(S)
 
     W = matMul(matMul(matMul(transpuesta(Y),V1),St),Ut)
         
