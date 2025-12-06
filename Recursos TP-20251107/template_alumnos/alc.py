@@ -859,7 +859,7 @@ def svd_reducida(A, k="max", tol=1e-15):
         else:
             k_eff = min(int(k), r)
 
-        hatS = np.diag(valores_singulares[:k_eff])
+        hatS = valores_singulares[:k_eff]
         hatU = U_ordenado[:, :k_eff]
 
         hatV = np.zeros((A.shape[1], k_eff))
@@ -867,7 +867,7 @@ def svd_reducida(A, k="max", tol=1e-15):
         B_v = matMul(transpuesta(A), hatU)
 
         for i in range(k_eff):
-            sigma_i = hatS[i, i]
+            sigma_i = hatS[i]
             if sigma_i >= tol:
                 hatV[:, i] = B_v[:, i] / sigma_i
 
