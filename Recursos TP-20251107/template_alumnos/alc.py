@@ -1039,7 +1039,9 @@ def connected_con_cholesky(X, L, Y):
     A = matmul(X_T, X)
     if not esSDP(A):
       raise ValueError("Matriz no es SDP")
-    L, Lt = cholesky(A)
+    if L is None:
+      L, _ = cholesky(A)
+    Lt = transpuesta(L)
     # L * Lt * U = X_T
     # L * B = X_T
     B = res_tri_mat(L, X_T, True)
@@ -1060,7 +1062,9 @@ def connected_con_cholesky(X, L, Y):
     A_T = transpose(A)
     if not esSDP(A_T):
        raise ValueError("Matriz no es SDP")
-    L, Lt = cholesky(A_T)
+    if L is None:
+      L, _ = cholesky(A_T)
+    Lt = transpuesta(L)
     B = res_tri_mat(L, X, True)
     V_T = res_tri_mat(Lt, B, False)
     V = transpose(V_T)
@@ -1078,7 +1082,9 @@ def connected_con_cholesky(X, L, Y):
     A = matmul(X, X_T)
     if not esSDP(A):
        raise ValueError("Matriz no es SDP")
-    L, Lt = cholesky(A)
+    if L is None:
+      L, _ = cholesky(A)
+    Lt = transpuesta(L)
     # Me queda L * Lt * W_T = X * Y_T
     XY_T = matmul(X, transpose(Y))
     B = res_tri_mat(L, XY_T, True)
