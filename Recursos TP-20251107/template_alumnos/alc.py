@@ -1041,13 +1041,9 @@ Dada X(n x p) ∈ R
 """
 
 def connected_con_cholesky(X, L, Y):
-  transpose = transpuesta
-  #mul = lambda A, B: A @ B
-  matmul = matMul
-  
-  def caso1(X, Y, transpose, solve, cholesky, matmul, L):
-    X_T = transpose(X)
-    A = matmul(X_T, X)
+  def caso1():
+    X_T = transpuesta(X)
+    A = matMul(X_T, X)
     if not esSDP(A):
       raise ValueError("Matriz no es SDP")
     if L is None:
@@ -1059,7 +1055,7 @@ def connected_con_cholesky(X, L, Y):
     # Lt * U = B
     U = res_tri_mat(Lt, B, False)
     # W = Y * U
-    W = matmul(Y, U)
+    W = matMul(Y, U)
     return W
 
   # Caso 2
@@ -1067,10 +1063,10 @@ def connected_con_cholesky(X, L, Y):
   # Quiero resolver V * A = X transpuesta
   # Que es lo mismo que hacer A transpuesta * V transpuesta = X
   # despejar W de W = Y * V
-  def caso2(X, Y, transpose, solve, cholesky, matmul, L):
-    X_T = transpose(X)
-    A = matmul(X, X_T)
-    A_T = transpose(A)
+  def caso2():
+    X_T = transpuesta(X)
+    A = matMul(X, X_T)
+    A_T = transpuesta(A)
     if not esSDP(A_T):
        raise ValueError("Matriz no es SDP")
     if L is None:
@@ -1078,8 +1074,8 @@ def connected_con_cholesky(X, L, Y):
     Lt = transpuesta(L)
     B = res_tri_mat(L, X, True)
     V_T = res_tri_mat(Lt, B, False)
-    V = transpose(V_T)
-    W = matmul(Y, V)
+    V = transpuesta(V_T)
+    W = matMul(Y, V)
     return W
 
   # Despejar W de WX = Y
@@ -1087,20 +1083,20 @@ def connected_con_cholesky(X, L, Y):
   # W X = Y 
   # Xt * Wt = Yt
   # X * Xt * Wt = X * Yt
-  def caso3(X, Y, transpose, solve, cholesky, matmul, L):
+  def caso3():
     # W = matmul(Y, inversa(X))
-    X_T = transpose(X)
-    A = matmul(X, X_T)
+    X_T = transpuesta(X)
+    A = matMul(X, X_T)
     if not esSDP(A):
        raise ValueError("Matriz no es SDP")
     if L is None:
       L, _ = cholesky(A)
     Lt = transpuesta(L)
     # Me queda L * Lt * W_T = X * Y_T
-    XY_T = matmul(X, transpose(Y))
+    XY_T = matMul(X, transpuesta(Y))
     B = res_tri_mat(L, XY_T, True)
     W_T = res_tri_mat(Lt, B, False)
-    W = transpose(W_T)
+    W = transpuesta(W_T)
     return W
     
   Q,R = QR_con_GS(X)
@@ -1111,11 +1107,11 @@ def connected_con_cholesky(X, L, Y):
   print("Rango de X:", rank)
 
   if rank == p and n > p:
-      W = caso1(X, Y, transpose, solve, cholesky, matMul, L)
+      W = caso1()
   elif rank == n and n < p:
-      W = caso2(X, Y, transpose, solve, cholesky, matMul, L)
+      W = caso2()
   elif rank == n and n == p:
-      W = caso3(X, Y, transpose, solve, cholesky, matMul, L)
+      W = caso3()
   else:
       raise ValueError("Rango de X no compatible con Y")
   return W
