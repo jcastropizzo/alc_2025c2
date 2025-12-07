@@ -1041,7 +1041,8 @@ Dada X(n x p) ∈ R
 """
 
 def connected_con_cholesky(X, L, Y):
-  def caso1():
+  
+  def caso1(L):
     X_T = transpuesta(X)
     A = matMul(X_T, X)
     if not esSDP(A):
@@ -1063,7 +1064,7 @@ def connected_con_cholesky(X, L, Y):
   # Quiero resolver V * A = X transpuesta
   # Que es lo mismo que hacer A transpuesta * V transpuesta = X
   # despejar W de W = Y * V
-  def caso2():
+  def caso2(L):
     X_T = transpuesta(X)
     A = matMul(X, X_T)
     A_T = transpuesta(A)
@@ -1083,7 +1084,7 @@ def connected_con_cholesky(X, L, Y):
   # W X = Y 
   # Xt * Wt = Yt
   # X * Xt * Wt = X * Yt
-  def caso3():
+  def caso3(L):
     # W = matmul(Y, inversa(X))
     X_T = transpuesta(X)
     A = matMul(X, X_T)
@@ -1107,11 +1108,11 @@ def connected_con_cholesky(X, L, Y):
   print("Rango de X:", rank)
 
   if rank == p and n > p:
-      W = caso1()
+      W = caso1(L)
   elif rank == n and n < p:
-      W = caso2()
+      W = caso2(L)
   elif rank == n and n == p:
-      W = caso3()
+      W = caso3(L)
   else:
       raise ValueError("Rango de X no compatible con Y")
   return W
