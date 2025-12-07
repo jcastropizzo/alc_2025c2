@@ -377,7 +377,15 @@ def esSDP(A,atol=1e-10):
     if(D[i,i] <= 0): return False
   return True
 
-def obtener_householder(A):
+def calculaQR(A, tol, metodo="RH"):
+  if metodo == "RH":
+    return QR_con_HH(A,tol)
+  elif metodo == "GS":
+    return QR_con_GS(A,tol)
+  else:
+    raise ValueError(f"Método de factorización QR no válido: {metodo}")
+
+def obtener_householder(A, tol=1e-12):
     """
     A partir de una matriz A, obtiene todas las matrices de reflexión de Householder
     necesarias para triangularizarla (factorización QR mediante Householder).
@@ -406,10 +414,10 @@ def obtener_householder(A):
         dim_sub = len(x)
 
         # Calculamos la norma del vector
-        norma_x = np.linalg.norm(x)
+        norma_x = norma(x, 2)
 
         # Si la norma es muy pequeña, usamos la identidad
-        if norma_x < 1e-10:
+        if norma_x < tol:
             H_j = np.eye(m)
             matrices_householder.append(H_j)
             continue
@@ -426,13 +434,15 @@ def obtener_householder(A):
         # Calculamos la norma cuadrada de v para la fórmula
         v_norma_cuadrada = np.dot(v, v)
 
-        if v_norma_cuadrada < 1e-10:
+        if v_norma_cuadrada < tol:
             # Si v es muy pequeño, usamos identidad
             H_sub = np.eye(dim_sub)
         else:
             # Matriz de Householder reducida: H_sub = I - 2*v*v^T/(v^T*v)
-            # Usando numpy para este producto
-            vv_T = np.outer(v, v)
+            # Producto externo usando matMul y reshape para matriz columna/fila
+            v_mat = v.reshape(-1, 1)  # columna
+            v_mat_T = v.reshape(1, -1)  # fila
+            vv_T = matMul(v_mat, v_mat_T)
             H_sub = np.eye(dim_sub) - 2.0 * vv_T / v_norma_cuadrada
 
         # Construimos la matriz de Householder completa (m x m)
@@ -442,13 +452,13 @@ def obtener_householder(A):
         matrices_householder.append(H_j)
 
         # Aplicamos la transformación a la matriz de trabajo
-        A_trabajo = np.dot(H_j, A_trabajo)
+        A_trabajo = matMul(H_j, A_trabajo)
 
     debugPrint(f"[DEBUG] obtener_householder: Completado, generadas {len(matrices_householder)} matrices")
     return matrices_householder
 
 
-def QR_con_HH(A):
+def QR_con_HH(A, tol=1e-12):
     """
     Realiza la factorización QR de una matriz A usando reflexiones de Householder.
 
@@ -466,18 +476,18 @@ def QR_con_HH(A):
     m, n = A.shape
     
     debugPrint(f"[DEBUG] QR_con_HH: Calculando matrices de Householder")
-    matrices_H = obtener_householder(A)
+    matrices_H = obtener_householder(A, tol)
     
     debugPrint(f"[DEBUG] QR_con_HH: Obtenidas {len(matrices_H)} matrices de Householder")
     debugPrint(f"[DEBUG] QR_con_HH: Calculando matriz R")
     R = A.copy().astype(float)
     for H in matrices_H:
-        R = np.dot(H, R)
+        R = matMul(H, R)
 
     debugPrint(f"[DEBUG] QR_con_HH: Calculando matriz Q")
     Q = np.eye(m)
     for H in matrices_H:
-        Q = np.dot(Q, H)
+        Q = matMul(Q, H)
 
     if m >= n:
         Q = Q[:, :n]
@@ -516,7 +526,8 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     for j in range(1, max_cols):
         Q[:, j] = A[:, j]
         for k in range(0, j):
-            R[k, j] = np.dot(Q[:, k], Q[:, j])
+            # El producto interno debe ser escalar, aseguramos correcta forma
+            R[k, j] = matMul(Q[:, k].reshape(-1, 1).T, Q[:, j].reshape(-1, 1))[0, 0]
             Q[:, j] = Q[:, j] - R[k, j] * Q[:, k]
             nops = nops + 4 * m
         R[j, j] = norma(Q[:, j], 2)
@@ -528,7 +539,8 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
         debugPrint(f"[DEBUG] QR_con_GS: Calculando columnas restantes de R para matriz wide")
         for j in range(max_cols, n):
             for i in range(max_cols):
-                R[i, j] = np.dot(Q[:, i], A[:, j])
+                # El producto interno debe ser escalar, aseguramos correcta forma
+                R[i, j] = matMul(Q[:, i].reshape(-1, 1).T, A[:, j].reshape(-1, 1))[0, 0]
                 nops = nops + 2 * m
 
     debugPrint(f"[DEBUG] QR_con_GS: Completado. Forma Q: {Q.shape}, Forma R: {R.shape}")
@@ -1030,9 +1042,8 @@ Dada X(n x p) ∈ R
 
 def connected_con_cholesky(X, L, Y):
   transpose = transpuesta
-  solve = np.linalg.solve
   #mul = lambda A, B: A @ B
-  mul = matMul
+  matmul = matMul
   
   def caso1(X, Y, transpose, solve, cholesky, matmul, L):
     X_T = transpose(X)
