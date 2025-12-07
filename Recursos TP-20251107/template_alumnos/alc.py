@@ -385,117 +385,95 @@ def calculaQR(A, tol, metodo="RH"):
   else:
     raise ValueError(f"Método de factorización QR no válido: {metodo}")
 
-def obtener_householder(A, tol=1e-12):
-    """
-    A partir de una matriz A, obtiene todas las matrices de reflexión de Householder
-    necesarias para triangularizarla (factorización QR mediante Householder).
-
-    Argumentos:
-    A (np.array): La matriz de entrada (m x n).
-
-    Devuelve:
-    list: Lista de matrices de Householder H_1, H_2, ..., H_k
-          donde k = min(m, n)
-    """
-    debugPrint(f"[DEBUG] obtener_householder: Iniciando para matriz de forma {A.shape}")
+def QR_con_HH(A, tol=1e-12):
     m, n = A.shape
-    A_trabajo = A.copy().astype(float)
-    matrices_householder = []
-
-    # Iteramos sobre cada columna (hasta min(m, n))
-    k = min(m, n)
-    debugPrint(f"[DEBUG] obtener_householder: Se calcularán {k} matrices de Householder")
-
-    for j in range(k):
-        if j % 100 == 0:
-            debugPrint(f"[DEBUG] obtener_householder: Procesando columna {j}/{k}")
-        # Extraemos la subcolumna desde la fila j hasta el final
-        x = A_trabajo[j:, j].copy().flatten()
-        dim_sub = len(x)
-
-        # Calculamos la norma del vector
+    
+    R = A.copy().astype(float)
+    Q = np.eye(m)
+    for k in range(n):
+        if k % 100 == 0:
+            print(f"[DEBUG] QR_Householder_Algoritmo2: Procesando columna {k}/{n}")
+        
+        # Extraer el vector x desde la fila k hasta el final de la columna k
+        x = R[k:m, k].copy()
+        dim_sub = len(x)  # m - k + 1
+        
+        # Calcular e = -sign(x_1) * ||x||_2
         norma_x = norma(x, 2)
-
-        # Si la norma es muy pequeña, usamos la identidad
+        
         if norma_x < tol:
-            H_j = np.eye(m)
-            matrices_householder.append(H_j)
             continue
-
-        # Vector canónico e_1 de la dimensión apropiada
+            
+        # Vector canónico e_1 de dimensión (m-k+1)
         e1 = np.zeros(dim_sub)
         e1[0] = 1.0
-
-        # Vector de reflexión: v = x +/- ||x|| * e_1
-        # Usamos el signo apropiado para evitar cancelación catastrófica
+        
+        # e = -sign(x_1) * ||x||_2
         signo = 1.0 if x[0] >= 0 else -1.0
-        v = x + signo * norma_x * e1
-
-        # Calculamos la norma cuadrada de v para la fórmula
-        v_norma_cuadrada = np.dot(v, v)
-
-        if v_norma_cuadrada < tol:
-            # Si v es muy pequeño, usamos identidad
-            H_sub = np.eye(dim_sub)
+        e_scalar = -signo * norma_x
+        
+        # u = x - e * e_1^(m-k+1)
+        u = x - e_scalar * e1
+        
+        # Verificar si ||u||_2 > tol
+        norma_u = norma(u, 2)
+        
+        if norma_u > tol:
+            # Mantener u sin normalizar y usar ||u||^2 directamente
+            u_norma_sq = norma_u ** 2
+            
+            # H @ R = R - 2*u*(u^T @ R) / ||u||^2
+            # Solo necesitamos transformar R[k:m, k:n]
+            
+            u_col = u.reshape(-1, 1)  # columna (dim_sub, 1)
+            u_row = u.reshape(1, -1)  # fila (1, dim_sub)
+            
+            # Calcular u^T @ R[k:m, k:n]
+            R_sub = R[k:m, k:n]
+            u_T_R = matMul(u_row, R_sub)  # (1, n-k)
+            
+            # Calcular 2*u*(u^T @ R) / ||u||^2
+            const = 2.0 / u_norma_sq
+            termino_R = matMul(u_col, u_T_R) * const  # (dim_sub, n-k)
+            
+            # Actualizar R[k:m, k:n]
+            R[k:m, k:n] = R_sub - termino_R
+            
+            # Asegurar que los elementos por debajo de la diagonal en la columna k sean exactamente cero
+            # (eliminar errores de precisión numérica)
+            if k + 1 < m:
+                R[k+1:m, k] = 0.0
+            
+            debugPrint(f"[DEBUG] QR_Householder_Algoritmo2: Columna {k}, R actualizada")
+            
+            # Aplicar transformación de Householder a Q de manera eficiente
+            # Q @ H^T = Q - 2*(Q @ u)*(u^T) / ||u||^2
+            # Como H es simétrica, H^T = H
+            # Solo necesitamos transformar Q[:, k:m]
+            debugPrint(f"[DEBUG] QR_Householder_Algoritmo2: Columna {k}, aplicando H^T a submatriz Q[:, {k}:{m}]")
+            
+            Q_sub = Q[:, k:m]
+            Q_u = matMul(Q_sub, u_col)  # (m, 1)
+            
+            # Calcular 2*(Q @ u)*(u^T) / ||u||^2
+            termino_Q = matMul(Q_u, u_row) * const  # (m, dim_sub)
+            
+            # Actualizar Q[:, k:m]
+            Q[:, k:m] = Q_sub - termino_Q
+            debugPrint(f"[DEBUG] QR_Householder_Algoritmo2: Columna {k}, Q actualizada")
         else:
-            # Matriz de Householder reducida: H_sub = I - 2*v*v^T/(v^T*v)
-            # Producto externo usando matMul y reshape para matriz columna/fila
-            v_mat = v.reshape(-1, 1)  # columna
-            v_mat_T = v.reshape(1, -1)  # fila
-            vv_T = matMul(v_mat, v_mat_T)
-            H_sub = np.eye(dim_sub) - 2.0 * vv_T / v_norma_cuadrada
-
-        # Construimos la matriz de Householder completa (m x m)
-        H_j = np.eye(m)
-        H_j[j:, j:] = H_sub
-
-        matrices_householder.append(H_j)
-
-        # Aplicamos la transformación a la matriz de trabajo
-        A_trabajo = matMul(H_j, A_trabajo)
-
-    debugPrint(f"[DEBUG] obtener_householder: Completado, generadas {len(matrices_householder)} matrices")
-    return matrices_householder
-
-
-def QR_con_HH(A, tol=1e-12):
-    """
-    Realiza la factorización QR de una matriz A usando reflexiones de Householder.
-
-    Argumentos:
-    A (np.array): La matriz de entrada (m x n).
-
-    Devuelve:
-    Para matrices no cuadradas:
-      A (m x n)
-      si m >= n: devuelve Q (m x n) con columnas ortonormales, R (n x n) triangular superior
-      si m < n: devuelve Q (m x m) ortogonal, R (m x n) triangular superior
-    tal que A = Q * R
-    """
-    debugPrint(f"[DEBUG] QR_con_HH: Iniciando descomposición QR con Householder para matriz de forma {A.shape}")
-    m, n = A.shape
+            debugPrint(f"[DEBUG] QR_Householder_Algoritmo2: Columna {k}, ||u|| muy pequeño, saltando reflexión")
     
-    debugPrint(f"[DEBUG] QR_con_HH: Calculando matrices de Householder")
-    matrices_H = obtener_householder(A, tol)
-    
-    debugPrint(f"[DEBUG] QR_con_HH: Obtenidas {len(matrices_H)} matrices de Householder")
-    debugPrint(f"[DEBUG] QR_con_HH: Calculando matriz R")
-    R = A.copy().astype(float)
-    for H in matrices_H:
-        R = matMul(H, R)
-
-    debugPrint(f"[DEBUG] QR_con_HH: Calculando matriz Q")
-    Q = np.eye(m)
-    for H in matrices_H:
-        Q = matMul(Q, H)
-
+    # Ajustar dimensiones de salida según el formato esperado
+    # Para m >= n: Q es (m × n), R es (n × n)
+    # Para m < n: Q es (m × m), R es (m × n)
     if m >= n:
         Q = Q[:, :n]
         R = R[:n, :]
-
-    debugPrint(f"[DEBUG] QR_con_HH: Completado. Forma Q: {Q.shape}, Forma R: {R.shape}")
+        debugPrint(f"[DEBUG] QR_Householder_Algoritmo2: Caso m>=n, truncando Q a ({m}, {n}) y R a ({n}, {n})")
+    
+    debugPrint(f"[DEBUG] QR_Householder_Algoritmo2: Completado. Q.shape = {Q.shape}, R.shape = {R.shape}")
     return Q, R
-
 
 def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     debugPrint(f"[DEBUG] QR_con_GS: Iniciando descomposición QR con Gram-Schmidt para matriz de forma {A.shape}")
