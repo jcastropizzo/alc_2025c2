@@ -369,13 +369,34 @@ def calculaLDV(A):
   V = transpuesta(V_T)
   return L, D, V, nops1 + nops2
 
-def esSDP(A,atol=1e-10):
-  L,D,V,_=calculaLDV(A)
-  if(L is None): return False
-  if(not matricesIguales(transpuesta(L),V,tol=atol)): return False
-  for i in range(D.shape[0]):
-    if(D[i,i] <= 0): return False
-  return True
+def esSDP(A, atol=1e-10):
+  if not esSimetrica(A):
+    return False
+  
+  try:
+    n = A.shape[0]
+    L = np.zeros_like(A)
+    
+    for i in range(n):
+      for j in range(i + 1):
+        if i == j:
+          suma = 0.0
+          for k in range(j):
+            suma += L[i, k] * L[i, k]
+          val = A[i, i] - suma
+          if val <= atol:
+            return False
+          L[i, j] = np.sqrt(val)
+        else:
+          suma = 0.0
+          for k in range(j):
+            suma += L[i, k] * L[j, k]
+          if abs(L[j, j]) < atol:
+            return False
+          L[i, j] = (A[i, j] - suma) / L[j, j]
+    return True
+  except:
+    return False
 
 def calculaQR(A, tol, metodo="RH"):
   if metodo == "RH":
@@ -475,6 +496,16 @@ def QR_con_HH(A, tol=1e-12):
     debugPrint(f"[DEBUG] QR_Householder_Algoritmo2: Completado. Q.shape = {Q.shape}, R.shape = {R.shape}")
     return Q, R
 
+def producto_interno(u, v):
+    """
+    Calcula el producto interno de dos vectores u y v.
+    """
+    resultado = 0.0
+    for ui, vi in zip(u.flat, v.flat):
+        resultado += ui * vi
+    return resultado
+
+
 def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     debugPrint(f"[DEBUG] QR_con_GS: Iniciando descomposición QR con Gram-Schmidt para matriz de forma {A.shape}")
     nops = 0
@@ -502,23 +533,20 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     Q[:, 0] = A[:, 0] / R[0, 0]
 
     for j in range(1, max_cols):
-        Q[:, j] = A[:, j]
+        Q[:, j] = A[:, j].copy()
         for k in range(0, j):
-            # El producto interno debe ser escalar, aseguramos correcta forma
-            R[k, j] = matMul(Q[:, k].reshape(-1, 1).T, Q[:, j].reshape(-1, 1))[0, 0]
+            R[k, j] = producto_interno(Q[:, k], Q[:, j])
             Q[:, j] = Q[:, j] - R[k, j] * Q[:, k]
             nops = nops + 4 * m
         R[j, j] = norma(Q[:, j], 2)
         Q[:, j] = Q[:, j] / R[j, j]
         nops = nops + m
 
-    # Para matriz wide, calcular columnas restantes de R
     if m < n:
         debugPrint(f"[DEBUG] QR_con_GS: Calculando columnas restantes de R para matriz wide")
         for j in range(max_cols, n):
             for i in range(max_cols):
-                # El producto interno debe ser escalar, aseguramos correcta forma
-                R[i, j] = matMul(Q[:, i].reshape(-1, 1).T, A[:, j].reshape(-1, 1))[0, 0]
+                R[i, j] = producto_interno(Q[:, i], A[:, j])
                 nops = nops + 2 * m
 
     debugPrint(f"[DEBUG] QR_con_GS: Completado. Forma Q: {Q.shape}, Forma R: {R.shape}")
@@ -559,13 +587,15 @@ def metpot2k(A, tol=1e-15, max_iter=1000):
     max_iter = int(max_iter)
 
     for k in range(max_iter):
-        w = matMul(A,(matMul(A,v)))
+        Av = matMul(A, v)
+        w = matMul(A, Av)
         norma_w = norma(w,2)
         if norma_w < tol:
             return v, 0.0, k
 
         v_nuevo = w / norma_w
-        l_nuevo = matMul(transpuesta(v_nuevo),matMul(A,v_nuevo))[0, 0]
+        Av_nuevo = matMul(A, v_nuevo)
+        l_nuevo = producto_interno(v_nuevo.flatten(), Av_nuevo.flatten())
 
         if np.abs(l_nuevo - l_prev) < tol:
             return v_nuevo, l_nuevo, k
@@ -651,30 +681,29 @@ def diagRH(A_original, tol=1e-15, K=1000):
             break  # Es el último elemento, no hay más que deflacionar
 
         # 3. Construir el vector u para la reflexión de Householder
-        e_0 = np.zeros((n_sub, 1))
-        e_0[0] = 1.0
-
         if autovector_sub.shape[1] != 1:
             autovector_sub = autovector_sub.reshape(-1, 1)
 
         # Fórmula numéricamente estable para u
         norma_v = norma(autovector_sub, 2)
         sign_v0 = 1.0 if autovector_sub[0, 0] >= 0 else -1.0
-        u_sub = autovector_sub + sign_v0 * norma_v * e_0
-        u_norma_sq = norma(u_sub, 2) ** 2
+        
+        u_sub = autovector_sub.copy()
+        u_sub[0, 0] += sign_v0 * norma_v
+        
+        u_norma_sq = 0.0
+        for val in u_sub.flatten():
+            u_norma_sq += val * val
 
         if u_norma_sq < tol:
             # El autovector ya es e_0, no se necesita reflexión
             continue
 
-        # 4. "Embed" u_sub en un vector de tamaño completo n
         u_full = np.zeros((n, 1))
         u_full[i:] = u_sub
 
-        # 5. Acumular S_final = S_final @ H_full (Operación O(n^2))
         S_final = aplica_H_derecha(S_final, u_full, u_norma_sq)
 
-        # 6. Deflacionar B = H_full @ B @ H_full (Operación O(n^2))
         # H es simétrica (H = H.T)
         B = aplica_H_izquierda(B, u_full, u_norma_sq)
         B = aplica_H_derecha(B, u_full, u_norma_sq)
@@ -823,74 +852,78 @@ def svd_reducida(A, k="max", tol=1e-15):
     if m < n:
         print("Calculando A*AT...")
         mult_mat_start_time = time.perf_counter()
-        B = matMul(A, transpuesta(A))
+        A_T = transpuesta(A)
+        B = matMul(A, A_T)
         mult_mat_end_time = time.perf_counter()
         mult_mat_time = mult_mat_end_time - mult_mat_start_time
         print(f"A*AT calculada en {mult_mat_time:.4f} segundos")
+        
         diag_start = time.perf_counter()
         print("Calculando DiagRH de A*AT para obtener diagonalización")
-        diagonalizacion = diagRH(B, tol,1000)
+        diagonalizacion = diagRH(B, tol, 1000)
         diag_end = time.perf_counter()
         print(f"Diagonalizacion calculada en {(diag_end - diag_start)/60:.4f} minutos")
+        
         U = diagonalizacion[0]
         D = diagonalizacion[1]
         autovalores_orig = np.diag(D)
+        
         indices_ordenados = np.argsort(autovalores_orig)[::-1]
         autovalores_ordenados = autovalores_orig[indices_ordenados]
         U_ordenado = U[:, indices_ordenados]
 
-        autovalores_filtrados = autovalores_ordenados[autovalores_ordenados >= tol]
+        mascara_validos = autovalores_ordenados >= tol
+        autovalores_filtrados = autovalores_ordenados[mascara_validos]
         print("Calculando valores singulares")
         valores_singulares = np.sqrt(autovalores_filtrados)
         r = len(valores_singulares)
 
-        if k == "max":
-            k_eff = r
-        else:
-            k_eff = min(int(k), r)
+        k_eff = r if k == "max" else min(int(k), r)
 
         hatS = valores_singulares[:k_eff]
-        hatU = U_ordenado[:, :k_eff]
+        hatU = U_ordenado[:, mascara_validos][:, :k_eff]
 
-        hatV = np.zeros((A.shape[1], k_eff))
-        print("Calculando B_v...")
-        B_v = matMul(transpuesta(A), hatU)
+        print("Calculando hatV...")
+        B_v = matMul(A_T, hatU)
+        
+        hatV = B_v / hatS[np.newaxis, :]  # Broadcasting: (n, k_eff) / (1, k_eff)
 
-        for i in range(k_eff):
-            sigma_i = hatS[i]
-            if sigma_i >= tol:
-                hatV[:, i] = B_v[:, i] / sigma_i
-
-    else: # (m >= n)
-        B = matMul(transpuesta(A), A)
-        diagonalizacion = diagRH(B, tol,1000)
+    else:  # (m >= n)
+        print("Calculando AT*A...")
+        mult_mat_start_time = time.perf_counter()
+        A_T = transpuesta(A)
+        B = matMul(A_T, A)
+        mult_mat_end_time = time.perf_counter()
+        mult_mat_time = mult_mat_end_time - mult_mat_start_time
+        print(f"AT*A calculada en {mult_mat_time:.4f} segundos")
+        
+        diag_start = time.perf_counter()
+        print("Calculando DiagRH de AT*A para obtener diagonalización")
+        diagonalizacion = diagRH(B, tol, 1000)
+        diag_end = time.perf_counter()
+        print(f"Diagonalizacion calculada en {(diag_end - diag_start)/60:.4f} minutos")
+        
         V = diagonalizacion[0]
         D = diagonalizacion[1]
-
         autovalores_orig = np.diag(D)
+
         indices_ordenados = np.argsort(autovalores_orig)[::-1]
         autovalores_ordenados = autovalores_orig[indices_ordenados]
         V_ordenado = V[:, indices_ordenados]
 
-        autovalores_filtrados = autovalores_ordenados[autovalores_ordenados >= tol]
+        mascara_validos = autovalores_ordenados >= tol
+        autovalores_filtrados = autovalores_ordenados[mascara_validos]
         valores_singulares = np.sqrt(autovalores_filtrados)
         r = len(valores_singulares)
 
-        if k == "max":
-            k_eff = r
-        else:
-            k_eff = min(int(k), r)
+        k_eff = r if k == "max" else min(int(k), r)
 
         hatS = valores_singulares[:k_eff]
-        hatV = V_ordenado[:, :k_eff]
+        hatV = V_ordenado[:, mascara_validos][:, :k_eff]
 
-        hatU = np.zeros((A.shape[0], k_eff))
+        print("Calculando hatU...")
         B_u = matMul(A, hatV)
-
-        for i in range(k_eff):
-            sigma_i = hatS[i]
-            if sigma_i >= tol:
-                hatU[:, i] = B_u[:, i] / sigma_i
+        hatU = B_u / hatS[np.newaxis, :]
 
     return hatU, hatS, hatV
 
@@ -1019,15 +1052,17 @@ Dada X(n x p) ∈ R
 """
 
 def connected_con_cholesky(X, L, Y):
+  X_T = transpuesta(X)
+  Y_T = transpuesta(Y)
   
-  def caso1(L):
-    X_T = transpuesta(X)
+  def caso1(L, X_T):
     A = matMul(X_T, X)
     if not esSDP(A):
       raise ValueError("Matriz no es SDP")
     if L is None:
-      L, _ = cholesky(A)
-    Lt = transpuesta(L)
+      L, Lt = cholesky(A)
+    else:
+      Lt = transpuesta(L)
     # L * Lt * U = X_T
     # L * B = X_T
     B = res_tri_mat(L, X_T, True)
@@ -1042,15 +1077,14 @@ def connected_con_cholesky(X, L, Y):
   # Quiero resolver V * A = X transpuesta
   # Que es lo mismo que hacer A transpuesta * V transpuesta = X
   # despejar W de W = Y * V
-  def caso2(L):
-    X_T = transpuesta(X)
+  def caso2(L, X_T):
     A = matMul(X, X_T)
-    A_T = transpuesta(A)
-    if not esSDP(A_T):
+    if not esSDP(A):
        raise ValueError("Matriz no es SDP")
     if L is None:
-      L, _ = cholesky(A_T)
-    Lt = transpuesta(L)
+      L, Lt = cholesky(A)
+    else:
+      Lt = transpuesta(L)
     B = res_tri_mat(L, X, True)
     V_T = res_tri_mat(Lt, B, False)
     V = transpuesta(V_T)
@@ -1062,17 +1096,17 @@ def connected_con_cholesky(X, L, Y):
   # W X = Y 
   # Xt * Wt = Yt
   # X * Xt * Wt = X * Yt
-  def caso3(L):
+  def caso3(L, X_T, Y_T):
     # W = matmul(Y, inversa(X))
-    X_T = transpuesta(X)
     A = matMul(X, X_T)
     if not esSDP(A):
        raise ValueError("Matriz no es SDP")
     if L is None:
-      L, _ = cholesky(A)
-    Lt = transpuesta(L)
+      L, Lt = cholesky(A)
+    else:
+      Lt = transpuesta(L)
     # Me queda L * Lt * W_T = X * Y_T
-    XY_T = matMul(X, transpuesta(Y))
+    XY_T = matMul(X, Y_T)
     B = res_tri_mat(L, XY_T, True)
     W_T = res_tri_mat(Lt, B, False)
     W = transpuesta(W_T)
@@ -1086,11 +1120,11 @@ def connected_con_cholesky(X, L, Y):
   print("Rango de X:", rank)
 
   if rank == p and n > p:
-      W = caso1(L)
+      W = caso1(L, X_T)
   elif rank == n and n < p:
-      W = caso2(L)
+      W = caso2(L, X_T)
   elif rank == n and n == p:
-      W = caso3(L)
+      W = caso3(L, X_T, Y_T)
   else:
       raise ValueError("Rango de X no compatible con Y")
   return W
@@ -1100,15 +1134,11 @@ pinvEcuacionesNormales = connected_con_cholesky
 ### EJERCICIO 3
 
 def inversa_diagonal(A):
-    # 1. Create a writeable copy of the array A
     B = A.copy()
     for i in range(B.shape[0]):
         if B[i,i] != 0:
             B[i,i] = 1/B[i,i]
     return B
-
-def matMulDiagonal(A,d):
-    return A * d
 
 def pinvSVD(U, S, V, Y):
     n = U.shape[0]
@@ -1122,12 +1152,6 @@ def pinvSVD(U, S, V, Y):
     print(f"St.shape {St.shape}")
     print(f"V1.shape {V1.shape}")
     print(f"Y.shape {Y.shape}")
-
-    VS = matMulDiagonal(V1,St)
-    print(f"VS.shape {VS.shape}")
-    YVS = matMul(transpuesta(Y),VS)
-    print(f"YVS.shape {YVS.shape}")
-#    W = matMul(YVS,Ut)
     
     W = matMul(matMul(matMul(transpuesta(Y),V1),np.diag(St)),Ut)
         
