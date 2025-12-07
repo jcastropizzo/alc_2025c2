@@ -501,8 +501,8 @@ def producto_interno(u, v):
     Calcula el producto interno de dos vectores u y v.
     """
     resultado = 0.0
-    for i in range(len(u)):
-        resultado += u[i] * v[i]
+    for ui, vi in zip(u.flat, v.flat):
+        resultado += ui * vi
     return resultado
 
 
