@@ -1034,7 +1034,7 @@ def connected_con_cholesky(X, L, Y):
   #mul = lambda A, B: A @ B
   mul = matMul
   
-  def caso1(X, Y, transpose, solve, cholesky, matmul):
+  def caso1(X, Y, transpose, solve, cholesky, matmul, L):
     X_T = transpose(X)
     A = matmul(X_T, X)
     if not esSDP(A):
@@ -1056,7 +1056,7 @@ def connected_con_cholesky(X, L, Y):
   # Quiero resolver V * A = X transpuesta
   # Que es lo mismo que hacer A transpuesta * V transpuesta = X
   # despejar W de W = Y * V
-  def caso2(X, Y, transpose, solve, cholesky, matmul):
+  def caso2(X, Y, transpose, solve, cholesky, matmul, L):
     X_T = transpose(X)
     A = matmul(X, X_T)
     A_T = transpose(A)
@@ -1076,7 +1076,7 @@ def connected_con_cholesky(X, L, Y):
   # W X = Y 
   # Xt * Wt = Yt
   # X * Xt * Wt = X * Yt
-  def caso3(X, Y, transpose, solve, cholesky, matmul):
+  def caso3(X, Y, transpose, solve, cholesky, matmul, L):
     # W = matmul(Y, inversa(X))
     X_T = transpose(X)
     A = matmul(X, X_T)
@@ -1100,11 +1100,11 @@ def connected_con_cholesky(X, L, Y):
   print("Rango de X:", rank)
 
   if rank == p and n > p:
-      W = caso1(X, Y, transpose, solve, cholesky, matMul)
+      W = caso1(X, Y, transpose, solve, cholesky, matMul, L)
   elif rank == n and n < p:
-      W = caso2(X, Y, transpose, solve, cholesky, matMul)
+      W = caso2(X, Y, transpose, solve, cholesky, matMul, L)
   elif rank == n and n == p:
-      W = caso3(X, Y, transpose, solve, cholesky, matMul)
+      W = caso3(X, Y, transpose, solve, cholesky, matMul, L)
   else:
       raise ValueError("Rango de X no compatible con Y")
   return W
