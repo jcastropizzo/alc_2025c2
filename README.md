@@ -1,5 +1,13 @@
 # alc_2024c2
 
+## Compilar versión en C de MatMul
+
+Leer archivo `build.aux` dentro del directorio `template_alumnos` y compilar acorde a la plataforma correspondiente.
+
+## Conclusiones
+
+Las conclusiones se encuentran al final de la notebook `eval.ipybin` en el directorio `template_alumnos`.
+
 ## Profiling
 
 Hay una prueba de profiling para svd. 
