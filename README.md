@@ -2,11 +2,11 @@
 
 ## Compilar versión en C de MatMul
 
-Leer archivo `build.aux` dentro del directorio `template_alumnos` y compilar acorde a la plataforma correspondiente.
+Leer archivo `[build.aux](Recursos TP-20251107/template_alumnos/build-aux.sh)` dentro del directorio `template_alumnos` y compilar acorde a la plataforma correspondiente.
 
 ## Conclusiones
 
-Las conclusiones se encuentran al final de la notebook `eval.ipybin` en el directorio `template_alumnos`.
+Las conclusiones se encuentran al final de la notebook `[eval.ipybin](Recursos TP-20251107/template_alumnos/eval.ipybin)` en el directorio `template_alumnos`.
 
 ## Profiling
 
